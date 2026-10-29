@@ -15,8 +15,8 @@ struct WatchSnapshotTests {
     )
   }
 
-  @Test("Round-trips through an application context")
-  func roundTrip() throws {
+  @Test
+  func `round-trips through an application context`() throws {
     let snapshot = WatchSnapshot(
       connection: .connected,
       deviceName: "Heltec V3",
@@ -29,8 +29,8 @@ struct WatchSnapshotTests {
     #expect(decoded == snapshot)
   }
 
-  @Test("Application context holds only property-list types")
-  func contextIsPropertyListSafe() throws {
+  @Test
+  func `application context holds only property-list types`() throws {
     let snapshot = WatchSnapshot(connection: .disconnected, deviceName: nil, totalUnread: 0, conversations: [])
 
     let context = try snapshot.applicationContext()
@@ -38,13 +38,13 @@ struct WatchSnapshotTests {
     #expect(PropertyListSerialization.propertyList(context, isValidFor: .binary))
   }
 
-  @Test("A context without a snapshot decodes to nil")
-  func missingSnapshotIsNil() throws {
+  @Test
+  func `a context without a snapshot decodes to nil`() throws {
     #expect(try WatchSnapshot(applicationContext: [:]) == nil)
   }
 
-  @Test("Conversations are capped at maxConversations, keeping the first rows")
-  func capsConversations() {
+  @Test
+  func `conversations are capped at maxConversations keeping the first rows`() {
     let summaries = (0..<(WatchSnapshot.maxConversations + 5)).map { makeSummary(index: $0) }
 
     let snapshot = WatchSnapshot(connection: .connected, deviceName: nil, totalUnread: 0, conversations: summaries)
