@@ -111,11 +111,24 @@ jobs:
           echo "iPhone: $PHONE_TYPE on $IOS_RUNTIME"
           echo "Watch:  $WATCH_TYPE on $WATCH_RUNTIME"
 
+          # Runtime disk images are sometimes not mounted yet on a fresh runner ("cannot determine
+          # the runtime bundle"); restarting CoreSimulator and retrying gets past it.
+          boot_device() {
+            for attempt in 1 2 3 4 5; do
+              if xcrun simctl list devices | grep "$1" | grep -q "(Booted)"; then return 0; fi
+              if xcrun simctl boot "$1"; then return 0; fi
+              echo "::warning::Boot attempt $attempt for $1 failed; restarting CoreSimulator"
+              killall -9 com.apple.CoreSimulator.CoreSimulatorService 2>/dev/null || true
+              sleep 20
+            done
+            return 1
+          }
+
           PHONE=$(xcrun simctl create "CI iPhone" "$PHONE_TYPE" "$IOS_RUNTIME")
           WATCH=$(xcrun simctl create "CI Watch" "$WATCH_TYPE" "$WATCH_RUNTIME")
           xcrun simctl pair "$WATCH" "$PHONE"
-          xcrun simctl boot "$PHONE"
-          xcrun simctl boot "$WATCH"
+          boot_device "$PHONE"
+          boot_device "$WATCH"
           xcrun simctl bootstatus "$PHONE" -b
           xcrun simctl bootstatus "$WATCH" -b
           xcrun simctl list pairs
