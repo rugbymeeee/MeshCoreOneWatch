@@ -1,0 +1,73 @@
+name: TestFlight (fork)
+
+# Fork-only: builds MeshCore One (iPhone + Apple Watch) with your own Apple Developer
+# account and uploads it to TestFlight. Never part of an upstream PR.
+# Run it by pushing to the `testflight` branch:
+#   git push origin feature/apple-watch:testflight --force
+# Setup (secrets, App Store Connect) is in ci/testflight-fork/README.md.
+
+on:
+  push:
+    branches:
+      - testflight
+
+concurrency:
+  group: testflight-fork
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and upload to TestFlight
+    runs-on: xcode-27
+    timeout-minutes: 45
+    env:
+      BUNDLE_ID_BASE: ${{ vars.BUNDLE_ID_BASE || format('com.{0}.meshcoreone', github.repository_owner) }}
+      MATCH_GIT_URL: ${{ vars.MATCH_GIT_URL || format('https://github.com/{0}/meshcore-certificates.git', github.repository_owner) }}
+      APP_DISPLAY_NAME: ${{ vars.APP_DISPLAY_NAME || 'MC1 Beta' }}
+      TEAM_ID: ${{ secrets.TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY: ${{ secrets.ASC_KEY }}
+      MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 120
+
+    steps:
+      - name: Check configuration
+        run: |
+          missing=()
+          for name in TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY MATCH_GIT_TOKEN MATCH_PASSWORD; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}. See ci/testflight-fork/README.md."
+            exit 1
+          fi
+          echo "Bundle ID base: $BUNDLE_ID_BASE"
+          echo "Certificates repo: $MATCH_GIT_URL"
+          echo "Display name: $APP_DISPLAY_NAME"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Select Xcode 27.1
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.1.app
+          xcodebuild -version
+
+      - name: Install dependencies
+        run: |
+          brew install make xcodegen swiftgen
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          gem install fastlane -v 2.241.1
+
+      - name: Use the fork Fastfile
+        run: |
+          rm -rf fastlane
+          mkdir fastlane
+          cp ci/testflight-fork/Fastfile fastlane/Fastfile
+
+      - name: Build and upload to TestFlight
+        run: fastlane beta
