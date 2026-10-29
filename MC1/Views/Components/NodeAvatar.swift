@@ -24,6 +24,11 @@ struct NodeAvatar: View {
   }
 
   private var iconName: String {
+    Self.iconName(for: role)
+  }
+
+  /// SF Symbol drawn for a node of `role`. Shared with the Apple Watch snapshot.
+  static func iconName(for role: RemoteNodeRole) -> String {
     switch role {
     case .roomServer:
       "door.left.hand.closed"

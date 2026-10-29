@@ -21,14 +21,25 @@ public struct WatchMessage: Codable, Equatable, Sendable, Identifiable {
   public let senderName: String?
   /// Delivery state of an outgoing message; nil for incoming ones.
   public let status: Status?
+  /// The sender's identity color in the iPhone theme, set by the iPhone when it has one.
+  public var senderColor: WatchColor?
 
-  public init(id: UUID, text: String, date: Date, isOutgoing: Bool, senderName: String?, status: Status?) {
+  public init(
+    id: UUID,
+    text: String,
+    date: Date,
+    isOutgoing: Bool,
+    senderName: String?,
+    status: Status?,
+    senderColor: WatchColor? = nil
+  ) {
     self.id = id
     self.text = text
     self.date = date
     self.isOutgoing = isOutgoing
     self.senderName = senderName
     self.status = status
+    self.senderColor = senderColor
   }
 }
 

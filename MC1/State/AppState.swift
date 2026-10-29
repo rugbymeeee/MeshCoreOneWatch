@@ -587,7 +587,7 @@ final class AppState {
       await self?.answerWatchRequest(request)
     }
     watchSyncService.activate()
-    observeConnectionStateForWatch()
+    observeWatchSnapshotInputs()
     await connectionManager.activate()
     // Check if disconnected pill should show (for fresh launch after termination)
     connectionUI.updateDisconnectedPillState(

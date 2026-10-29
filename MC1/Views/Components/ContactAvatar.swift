@@ -61,6 +61,11 @@ struct ContactAvatar: View {
   }
 
   private var initials: String {
+    Self.initials(for: name)
+  }
+
+  /// The emoji in `name`, or the initials of its first two words. Shared with the Apple Watch snapshot.
+  static func initials(for name: String) -> String {
     if let emoji = name.first(where: \.isEmoji) {
       return String(emoji)
     }

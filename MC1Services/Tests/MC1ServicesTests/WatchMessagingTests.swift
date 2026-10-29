@@ -23,7 +23,15 @@ struct WatchMessagingTests {
 
   @Test
   func `replies round-trip`() throws {
-    let message = WatchMessage(id: UUID(), text: "Net check", date: Date(timeIntervalSince1970: 1_700_000_000), isOutgoing: false, senderName: "Ridge", status: nil)
+    let message = WatchMessage(
+      id: UUID(),
+      text: "Net check",
+      date: Date(timeIntervalSince1970: 1_700_000_000),
+      isOutgoing: false,
+      senderName: "Ridge",
+      status: nil,
+      senderColor: WatchColor(red: 0.9, green: 0.5, blue: 0.2)
+    )
     let replies: [WatchReply] = [
       .recentMessages(channel, [message]),
       .sendResult(id: UUID(), outcome: .queued),

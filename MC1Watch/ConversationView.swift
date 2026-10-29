@@ -11,6 +11,10 @@ struct ConversationView: View {
 
   private static let quickReplies: [LocalizedStringResource] = ["OK", "👍", "On my way", "Yes", "No", "Thanks"]
 
+  private var appearance: WatchAppearance? {
+    receiver.snapshot?.appearance
+  }
+
   private var messages: [WatchMessage] {
     receiver.messages[conversation.id] ?? []
   }
@@ -29,9 +33,10 @@ struct ConversationView: View {
         if messages.isEmpty {
           Text("No Recent Messages")
             .foregroundStyle(.secondary)
+            .themedRow(appearance)
         } else {
           ForEach(messages) { message in
-            MessageRow(message: message)
+            MessageBubble(message: message, appearance: appearance)
           }
         }
       }
@@ -40,12 +45,14 @@ struct ConversationView: View {
         Section {
           TextField("Message", text: $draft)
             .onSubmit { send(draft) }
+            .themedRow(appearance)
           ForEach(Self.quickReplies, id: \.key) { reply in
             Button {
               send(String(localized: reply))
             } label: {
               Text(reply)
             }
+            .themedRow(appearance)
           }
         } header: {
           Text("Reply")
@@ -57,10 +64,12 @@ struct ConversationView: View {
         Section {
           Text("Replying to rooms from Apple Watch is not supported yet.")
             .foregroundStyle(.secondary)
+            .themedRow(appearance)
         }
       }
     }
     .navigationTitle(conversation.name)
+    .themedScreen(appearance)
     .task {
       receiver.requestMessages(for: conversation.ref)
       #if DEBUG
@@ -84,8 +93,26 @@ struct ConversationView: View {
   }
 }
 
-private struct MessageRow: View {
+/// A chat bubble in the iPhone's colors: outgoing in the theme accent (red once failed), incoming
+/// in the theme's incoming fill, with a channel sender's name in their identity color.
+private struct MessageBubble: View {
   let message: WatchMessage
+  let appearance: WatchAppearance?
+
+  private var fill: Color {
+    guard message.isOutgoing else {
+      return appearance.map { Color($0.incomingBubble) } ?? Color(white: 0.17)
+    }
+    if message.status == .failed {
+      return Color.red.opacity(0.8)
+    }
+    return appearance.map { Color($0.outgoingBubble) } ?? Color.blue
+  }
+
+  private var textColor: Color {
+    guard message.isOutgoing else { return .primary }
+    return appearance.map { Color($0.outgoingText) } ?? Color.white
+  }
 
   private var alignment: HorizontalAlignment {
     message.isOutgoing ? .trailing : .leading
@@ -95,21 +122,27 @@ private struct MessageRow: View {
     VStack(alignment: alignment, spacing: 2) {
       if let senderName = message.senderName {
         Text(senderName)
-          .font(.footnote)
-          .foregroundStyle(.secondary)
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(message.senderColor.map { Color($0) } ?? Color.secondary)
       }
-      Text(message.text)
-        .multilineTextAlignment(message.isOutgoing ? .trailing : .leading)
-      HStack(spacing: 4) {
-        Text(message.date, format: .relative(presentation: .named))
-        if let status = message.status {
-          StatusIcon(status: status)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(message.text)
+          .foregroundStyle(textColor)
+        HStack(spacing: 4) {
+          Text(message.date, format: .relative(presentation: .named))
+          if let status = message.status {
+            StatusIcon(status: status)
+          }
         }
+        .font(.footnote)
+        .foregroundStyle(message.isOutgoing ? textColor.opacity(0.7) : Color.secondary)
       }
-      .font(.footnote)
-      .foregroundStyle(.secondary)
+      .padding(.horizontal, 10)
+      .padding(.vertical, 6)
+      .background(fill, in: .rect(cornerRadius: 14))
     }
     .frame(maxWidth: .infinity, alignment: message.isOutgoing ? .trailing : .leading)
+    .listRowBackground(Color.clear)
     .accessibilityElement(children: .combine)
   }
 }
@@ -130,7 +163,6 @@ private struct StatusIcon: View {
         .accessibilityLabel(Text("Delivered"))
     case .failed:
       Image(systemName: "exclamationmark.circle.fill")
-        .foregroundStyle(.red)
         .accessibilityLabel(Text("Failed"))
     }
   }

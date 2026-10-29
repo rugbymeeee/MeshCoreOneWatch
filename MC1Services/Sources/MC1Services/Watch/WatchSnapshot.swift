@@ -26,15 +26,33 @@ public struct WatchSnapshot: WatchConnectivityPayload, Equatable, Sendable {
     public let name: String
     public let lastMessageDate: Date?
     public let unreadCount: Int
-    public let isMuted: Bool
+    public let unreadMentionCount: Int
+    public let notificationLevel: NotificationLevel
+    /// The avatar the iPhone draws for this conversation; nil draws a plain placeholder.
+    public let avatar: WatchAvatar?
 
-    public init(id: UUID, kind: Kind, name: String, lastMessageDate: Date?, unreadCount: Int, isMuted: Bool) {
+    public init(
+      id: UUID,
+      kind: Kind,
+      name: String,
+      lastMessageDate: Date?,
+      unreadCount: Int,
+      unreadMentionCount: Int = 0,
+      notificationLevel: NotificationLevel = .all,
+      avatar: WatchAvatar? = nil
+    ) {
       self.id = id
       self.kind = kind
       self.name = name
       self.lastMessageDate = lastMessageDate
       self.unreadCount = unreadCount
-      self.isMuted = isMuted
+      self.unreadMentionCount = unreadMentionCount
+      self.notificationLevel = notificationLevel
+      self.avatar = avatar
+    }
+
+    public var isMuted: Bool {
+      notificationLevel == .muted
     }
 
     /// Identifies this conversation in requests to the iPhone.
@@ -52,12 +70,21 @@ public struct WatchSnapshot: WatchConnectivityPayload, Equatable, Sendable {
   public var deviceName: String?
   public var totalUnread: Int
   public var conversations: [ConversationSummary]
+  /// The iPhone theme's colors; nil keeps the watch's system colors.
+  public var appearance: WatchAppearance?
 
   /// Truncates `conversations` to `maxConversations`; callers pass them already sorted.
-  public init(connection: Connection, deviceName: String?, totalUnread: Int, conversations: [ConversationSummary]) {
+  public init(
+    connection: Connection,
+    deviceName: String?,
+    totalUnread: Int,
+    conversations: [ConversationSummary],
+    appearance: WatchAppearance? = nil
+  ) {
     self.connection = connection
     self.deviceName = deviceName
     self.totalUnread = totalUnread
     self.conversations = Array(conversations.prefix(Self.maxConversations))
+    self.appearance = appearance
   }
 }

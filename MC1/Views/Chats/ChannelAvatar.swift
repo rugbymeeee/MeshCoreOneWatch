@@ -13,11 +13,16 @@ struct ChannelAvatar: View {
       Circle()
         .fill(fill)
 
-      Image(systemName: channel.isPublicChannel ? "globe" : (channel.name.hasPrefix("#") ? "number" : "lock"))
+      Image(systemName: Self.symbolName(for: channel))
         .font(.system(size: size * 0.4, weight: .bold))
         .foregroundStyle(glyph)
     }
     .frame(width: size, height: size)
+  }
+
+  /// SF Symbol drawn for `channel`: public, hashtag, or private. Shared with the Apple Watch snapshot.
+  static func symbolName(for channel: ChannelDTO) -> String {
+    channel.isPublicChannel ? "globe" : (channel.name.hasPrefix("#") ? "number" : "lock")
   }
 
   private var fill: Color {

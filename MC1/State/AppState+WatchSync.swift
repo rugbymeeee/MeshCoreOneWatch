@@ -10,15 +10,17 @@ extension AppState {
     }
   }
 
-  /// Republishes on every connection state change, so the watch follows connecting,
-  /// ready, and lost no matter which lifecycle callback (if any) accompanies the change.
-  func observeConnectionStateForWatch() {
+  /// Republishes on every connection state or theme change, so the watch follows connecting,
+  /// ready, and lost no matter which lifecycle callback (if any) accompanies the change, and
+  /// repaints when the user picks another theme.
+  func observeWatchSnapshotInputs() {
     withObservationTracking {
       _ = connectionState
+      _ = themeService.current.id
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.requestWatchSnapshot()
-        self?.observeConnectionStateForWatch()
+        self?.observeWatchSnapshotInputs()
       }
     }
   }
@@ -40,17 +42,27 @@ extension AppState {
   func watchMessages(for conversation: WatchConversationRef) async -> [WatchMessage] {
     guard let store = offlineDataStore, let radioID = currentRadioID else { return [] }
     let fetchLimit = WatchMessage.maxMessages * 2
+    var messages: [WatchMessage]
     switch conversation.kind {
     case .direct:
-      let messages = await (try? store.fetchMessages(contactID: conversation.id, limit: fetchLimit)) ?? []
-      return WatchMessage.recent(from: messages, isDM: true)
+      let fetched = await (try? store.fetchMessages(contactID: conversation.id, limit: fetchLimit)) ?? []
+      messages = WatchMessage.recent(from: fetched, isDM: true)
     case .channel:
       guard let channel = await watchChannel(id: conversation.id, radioID: radioID, in: store) else { return [] }
-      let messages = await (try? store.fetchMessages(radioID: radioID, channelIndex: channel.index, limit: fetchLimit)) ?? []
-      return WatchMessage.recent(from: messages, isDM: false)
+      let fetched = await (try? store.fetchMessages(radioID: radioID, channelIndex: channel.index, limit: fetchLimit)) ?? []
+      messages = WatchMessage.recent(from: fetched, isDM: false)
     case .room:
       return []
     }
+
+    // Sender names wear their identity color, as in the chat timeline.
+    let theme = themeService.current
+    for index in messages.indices {
+      if let senderName = messages[index].senderName {
+        messages[index].senderColor = theme.watchIdentityColor(forName: senderName)
+      }
+    }
+    return messages
   }
 
   /// Queues text typed on the watch through the Send Message shortcut's durable path, so it
@@ -112,9 +124,16 @@ extension AppState {
     case .disconnected: .disconnected
     }
     let deviceName = connection == .connected ? connectedDevice?.nodeName : nil
+    let theme = themeService.current
 
     guard let store = offlineDataStore, let radioID = currentRadioID else {
-      return WatchSnapshot(connection: connection, deviceName: deviceName, totalUnread: 0, conversations: [])
+      return WatchSnapshot(
+        connection: connection,
+        deviceName: deviceName,
+        totalUnread: 0,
+        conversations: [],
+        appearance: theme.watchAppearance
+      )
     }
 
     let contacts = await (try? store.fetchConversations(radioID: radioID)) ?? []
@@ -132,17 +151,26 @@ extension AppState {
       connection: connection,
       deviceName: deviceName,
       totalUnread: totalUnread,
-      conversations: ordered.map(\.watchSummary)
+      conversations: ordered.map { $0.watchSummary(avatar: theme.watchAvatar(for: $0)) },
+      appearance: theme.watchAppearance
     )
   }
 }
 
 private extension Conversation {
-  var watchSummary: WatchSnapshot.ConversationSummary {
-    let kind: WatchSnapshot.ConversationSummary.Kind = switch self {
-    case .direct: .direct
-    case .channel: .channel
-    case .room: .room
+  func watchSummary(avatar: WatchAvatar) -> WatchSnapshot.ConversationSummary {
+    let kind: WatchSnapshot.ConversationSummary.Kind
+    let unreadMentionCount: Int
+    switch self {
+    case let .direct(contact):
+      kind = .direct
+      unreadMentionCount = contact.unreadMentionCount
+    case let .channel(channel):
+      kind = .channel
+      unreadMentionCount = channel.unreadMentionCount
+    case .room:
+      kind = .room
+      unreadMentionCount = 0
     }
     return WatchSnapshot.ConversationSummary(
       id: id,
@@ -150,7 +178,9 @@ private extension Conversation {
       name: displayName,
       lastMessageDate: lastMessageDate,
       unreadCount: unreadCount,
-      isMuted: isMuted
+      unreadMentionCount: unreadMentionCount,
+      notificationLevel: notificationLevel,
+      avatar: avatar
     )
   }
 }
