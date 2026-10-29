@@ -108,6 +108,8 @@ Localization/
   ...                 # Other languages
 ```
 
+The Apple Watch app has its own file per language, `MC1Watch/Resources/Localization/<language>.lproj/Localizable.strings`. Its keys are the English text itself, but you translate it the same way: edit only the right side.
+
 ---
 
 ## For Developers

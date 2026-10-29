@@ -1,0 +1,108 @@
+/*
+  Localizable.strings
+  MC1Watch
+
+  Russian translation of strings for the Apple Watch app.
+  AI-translated - please verify with native speakers.
+*/
+
+// MARK: - Home
+
+/* Location: ContentView.swift - Home footer before any data has arrived from the iPhone */
+"Open MeshCore One on your iPhone to connect a radio." = "Откройте MeshCore One на iPhone, чтобы подключить рацию.";
+
+/* Location: ContentView.swift - Home footer when the iPhone is out of reach */
+"iPhone not reachable. Showing the last update." = "iPhone недоступен. Показано последнее обновление.";
+
+/* Location: ContentView.swift - Section header for the conversation list */
+"Conversations" = "Разговоры";
+
+/* Location: ContentView.swift - Shown when the iPhone has no conversations */
+"No Conversations" = "Нет разговоров";
+
+/* Location: ContentView.swift - Button asking the iPhone for fresh data */
+"Refresh" = "Обновить";
+
+/* Location: ContentView.swift - Radio status when the radio has no name */
+"Connected" = "Подключено";
+
+/* Location: ContentView.swift - Radio status while connecting */
+"Connecting…" = "Подключение…";
+
+/* Location: ContentView.swift - Radio status when no radio is connected */
+"Not Connected" = "Не подключено";
+
+// MARK: - Accessibility
+
+/* Location: ContentView.swift - VoiceOver label for a direct message conversation */
+"Direct Message" = "Прямое сообщение";
+
+/* Location: ContentView.swift - VoiceOver label for a channel conversation */
+"Channel" = "Канал";
+
+/* Location: ContentView.swift - VoiceOver label for a room conversation */
+"Room" = "Комната";
+
+/* Location: ContentView.swift - VoiceOver label for a muted conversation */
+"Muted" = "Уведомления отключены";
+
+/* Location: ContentView.swift - VoiceOver label for a conversation that notifies on mentions only */
+"Mentions Only" = "Только упоминания";
+
+/* Location: ContentView.swift - VoiceOver label for the @ badge */
+"Unread mention" = "Непрочитанное упоминание";
+
+/* Location: ContentView.swift - VoiceOver label for the unread count badge. %lld is the number of unread messages */
+"%lld unread" = "Непрочитанные: %lld";
+
+// MARK: - Quick replies
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"OK" = "Хорошо";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"On my way" = "Уже иду";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"Yes" = "Да";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"No" = "Нет";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"Thanks" = "Спасибо";
+
+// MARK: - Conversation
+
+/* Location: ConversationView.swift - Shown before a conversation's messages arrive, or when it has none */
+"No Recent Messages" = "Нет недавних сообщений";
+
+/* Location: ConversationView.swift - Placeholder of the reply text field */
+"Message" = "Сообщение";
+
+/* Location: ConversationView.swift - Section header above the reply controls */
+"Reply" = "Ответить";
+
+/* Location: ConversationView.swift - Shown instead of the reply controls in a room */
+"Replying to rooms from Apple Watch is not supported yet." = "Ответы в комнатах с Apple Watch пока не поддерживаются.";
+
+/* Location: ConversationView.swift - VoiceOver label for a message that is still sending */
+"Sending" = "Отправка";
+
+/* Location: ConversationView.swift - VoiceOver label for a sent message */
+"Sent" = "Отправлено";
+
+/* Location: ConversationView.swift - VoiceOver label for a delivered message */
+"Delivered" = "Доставлено";
+
+/* Location: ConversationView.swift - VoiceOver label for a message that failed to send */
+"Failed" = "Ошибка";
+
+/* Location: ConversationView.swift - Reply footer when the iPhone is out of reach */
+"iPhone not reachable." = "iPhone недоступен.";
+
+/* Location: ConversationView.swift - Reply footer while the iPhone queues the message */
+"Sending…" = "Отправка…";
+
+/* Location: ConversationView.swift - Reply footer once the message is in the radio's send queue */
+"Queued on the radio" = "В очереди на рации";

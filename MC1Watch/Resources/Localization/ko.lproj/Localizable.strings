@@ -1,0 +1,108 @@
+/*
+  Localizable.strings
+  MC1Watch
+
+  Korean translation of strings for the Apple Watch app.
+  AI-translated - please verify with native speakers.
+*/
+
+// MARK: - Home
+
+/* Location: ContentView.swift - Home footer before any data has arrived from the iPhone */
+"Open MeshCore One on your iPhone to connect a radio." = "무선 기기를 연결하려면 iPhone에서 MeshCore One을 여십시오.";
+
+/* Location: ContentView.swift - Home footer when the iPhone is out of reach */
+"iPhone not reachable. Showing the last update." = "iPhone에 연결할 수 없습니다. 마지막 업데이트를 표시합니다.";
+
+/* Location: ContentView.swift - Section header for the conversation list */
+"Conversations" = "대화";
+
+/* Location: ContentView.swift - Shown when the iPhone has no conversations */
+"No Conversations" = "대화 없음";
+
+/* Location: ContentView.swift - Button asking the iPhone for fresh data */
+"Refresh" = "새로 고침";
+
+/* Location: ContentView.swift - Radio status when the radio has no name */
+"Connected" = "연결됨";
+
+/* Location: ContentView.swift - Radio status while connecting */
+"Connecting…" = "연결 중…";
+
+/* Location: ContentView.swift - Radio status when no radio is connected */
+"Not Connected" = "연결 안 됨";
+
+// MARK: - Accessibility
+
+/* Location: ContentView.swift - VoiceOver label for a direct message conversation */
+"Direct Message" = "다이렉트 메시지";
+
+/* Location: ContentView.swift - VoiceOver label for a channel conversation */
+"Channel" = "채널";
+
+/* Location: ContentView.swift - VoiceOver label for a room conversation */
+"Room" = "룸";
+
+/* Location: ContentView.swift - VoiceOver label for a muted conversation */
+"Muted" = "알림 끔";
+
+/* Location: ContentView.swift - VoiceOver label for a conversation that notifies on mentions only */
+"Mentions Only" = "멘션만";
+
+/* Location: ContentView.swift - VoiceOver label for the @ badge */
+"Unread mention" = "읽지 않은 멘션";
+
+/* Location: ContentView.swift - VoiceOver label for the unread count badge. %lld is the number of unread messages */
+"%lld unread" = "읽지 않음 %lld개";
+
+// MARK: - Quick replies
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"OK" = "알겠어요";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"On my way" = "가는 중이에요";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"Yes" = "네";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"No" = "아니요";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"Thanks" = "고마워요";
+
+// MARK: - Conversation
+
+/* Location: ConversationView.swift - Shown before a conversation's messages arrive, or when it has none */
+"No Recent Messages" = "최근 메시지 없음";
+
+/* Location: ConversationView.swift - Placeholder of the reply text field */
+"Message" = "메시지";
+
+/* Location: ConversationView.swift - Section header above the reply controls */
+"Reply" = "답장";
+
+/* Location: ConversationView.swift - Shown instead of the reply controls in a room */
+"Replying to rooms from Apple Watch is not supported yet." = "Apple Watch에서는 아직 룸에 답장할 수 없습니다.";
+
+/* Location: ConversationView.swift - VoiceOver label for a message that is still sending */
+"Sending" = "보내는 중";
+
+/* Location: ConversationView.swift - VoiceOver label for a sent message */
+"Sent" = "보냄";
+
+/* Location: ConversationView.swift - VoiceOver label for a delivered message */
+"Delivered" = "전달됨";
+
+/* Location: ConversationView.swift - VoiceOver label for a message that failed to send */
+"Failed" = "실패";
+
+/* Location: ConversationView.swift - Reply footer when the iPhone is out of reach */
+"iPhone not reachable." = "iPhone에 연결할 수 없습니다.";
+
+/* Location: ConversationView.swift - Reply footer while the iPhone queues the message */
+"Sending…" = "보내는 중…";
+
+/* Location: ConversationView.swift - Reply footer once the message is in the radio's send queue */
+"Queued on the radio" = "무선 기기 대기열에 추가됨";

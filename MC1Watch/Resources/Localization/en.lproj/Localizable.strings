@@ -1,0 +1,108 @@
+/*
+  Localizable.strings
+  MC1Watch
+
+  English (source) strings for the Apple Watch app.
+  Keys are the English text itself, which SwiftUI looks up directly.
+*/
+
+// MARK: - Home
+
+/* Location: ContentView.swift - Home footer before any data has arrived from the iPhone */
+"Open MeshCore One on your iPhone to connect a radio." = "Open MeshCore One on your iPhone to connect a radio.";
+
+/* Location: ContentView.swift - Home footer when the iPhone is out of reach */
+"iPhone not reachable. Showing the last update." = "iPhone not reachable. Showing the last update.";
+
+/* Location: ContentView.swift - Section header for the conversation list */
+"Conversations" = "Conversations";
+
+/* Location: ContentView.swift - Shown when the iPhone has no conversations */
+"No Conversations" = "No Conversations";
+
+/* Location: ContentView.swift - Button asking the iPhone for fresh data */
+"Refresh" = "Refresh";
+
+/* Location: ContentView.swift - Radio status when the radio has no name */
+"Connected" = "Connected";
+
+/* Location: ContentView.swift - Radio status while connecting */
+"Connecting…" = "Connecting…";
+
+/* Location: ContentView.swift - Radio status when no radio is connected */
+"Not Connected" = "Not Connected";
+
+// MARK: - Accessibility
+
+/* Location: ContentView.swift - VoiceOver label for a direct message conversation */
+"Direct Message" = "Direct Message";
+
+/* Location: ContentView.swift - VoiceOver label for a channel conversation */
+"Channel" = "Channel";
+
+/* Location: ContentView.swift - VoiceOver label for a room conversation */
+"Room" = "Room";
+
+/* Location: ContentView.swift - VoiceOver label for a muted conversation */
+"Muted" = "Muted";
+
+/* Location: ContentView.swift - VoiceOver label for a conversation that notifies on mentions only */
+"Mentions Only" = "Mentions Only";
+
+/* Location: ContentView.swift - VoiceOver label for the @ badge */
+"Unread mention" = "Unread mention";
+
+/* Location: ContentView.swift - VoiceOver label for the unread count badge. %lld is the number of unread messages */
+"%lld unread" = "%lld unread";
+
+// MARK: - Quick replies
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"OK" = "OK";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"On my way" = "On my way";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"Yes" = "Yes";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"No" = "No";
+
+/* Location: ConversationView.swift - Quick reply sent as a message */
+"Thanks" = "Thanks";
+
+// MARK: - Conversation
+
+/* Location: ConversationView.swift - Shown before a conversation's messages arrive, or when it has none */
+"No Recent Messages" = "No Recent Messages";
+
+/* Location: ConversationView.swift - Placeholder of the reply text field */
+"Message" = "Message";
+
+/* Location: ConversationView.swift - Section header above the reply controls */
+"Reply" = "Reply";
+
+/* Location: ConversationView.swift - Shown instead of the reply controls in a room */
+"Replying to rooms from Apple Watch is not supported yet." = "Replying to rooms from Apple Watch is not supported yet.";
+
+/* Location: ConversationView.swift - VoiceOver label for a message that is still sending */
+"Sending" = "Sending";
+
+/* Location: ConversationView.swift - VoiceOver label for a sent message */
+"Sent" = "Sent";
+
+/* Location: ConversationView.swift - VoiceOver label for a delivered message */
+"Delivered" = "Delivered";
+
+/* Location: ConversationView.swift - VoiceOver label for a message that failed to send */
+"Failed" = "Failed";
+
+/* Location: ConversationView.swift - Reply footer when the iPhone is out of reach */
+"iPhone not reachable." = "iPhone not reachable.";
+
+/* Location: ConversationView.swift - Reply footer while the iPhone queues the message */
+"Sending…" = "Sending…";
+
+/* Location: ConversationView.swift - Reply footer once the message is in the radio's send queue */
+"Queued on the radio" = "Queued on the radio";
