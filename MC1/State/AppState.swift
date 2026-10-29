@@ -251,6 +251,7 @@ final class AppState {
   /// only while the captured radio, services, and version remain current.
   @discardableResult
   func refreshConversations() -> Task<Void, Never> {
+    requestWatchSnapshot()
     conversationsVersion += 1
     let version = conversationsVersion
     let capturedServices = services
@@ -303,6 +304,9 @@ final class AppState {
 
   /// Live Activity lifecycle (start/update/stop on Lock Screen and Dynamic Island)
   let liveActivityManager = LiveActivityManager()
+
+  /// Publishes connection status and recent conversations to the Apple Watch app
+  let watchSyncService = WatchSyncService()
 
   /// Task chain that serializes BLE lifecycle transitions across scene-phase changes.
   /// Do not cancel this task externally -- cancelling breaks the serialization
@@ -576,6 +580,10 @@ final class AppState {
     // (which fires during activate) finds currentActivity populated and can update it.
     await liveActivityManager.recoverExistingActivity()
     liveActivityManager.startObservingEnablement()
+    watchSyncService.onSnapshotNeeded = { [weak self] in
+      self?.requestWatchSnapshot()
+    }
+    watchSyncService.activate()
     await connectionManager.activate()
     // Check if disconnected pill should show (for fresh launch after termination)
     connectionUI.updateDisconnectedPillState(
@@ -644,6 +652,8 @@ final class AppState {
 
   /// Wire services-dependent callbacks after a successful connection.
   func wireServicesIfConnected() async {
+    // Runs on both connection ready and connection lost; the watch shows either.
+    requestWatchSnapshot()
     reconcileConnectionLinkSwitch()
     guard let services else {
       tearDownAppStateSessionState()

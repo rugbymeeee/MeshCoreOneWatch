@@ -49,6 +49,7 @@ targets:
       - package: MapLibre
       - package: MessagingUI
       - target: MC1Widgets
+      - target: MC1Watch
     preBuildScripts:
       - name: SwiftGen
         script: |
@@ -136,8 +137,8 @@ targets:
           INFOPLIST_FILE: MC1Widgets/Info.plist
           PRODUCT_BUNDLE_IDENTIFIER: io.pocketmesh.app.widgets
 
-  # Single-target watchOS app. Not yet embedded in MC1; that lands with the
-  # iPhone <-> Watch bridge.
+  # Single-target watchOS app, embedded in MC1 under Watch/. Receives a
+  # WatchSnapshot from the iPhone over WatchConnectivity.
   MC1Watch:
     type: application
     platform: watchOS
