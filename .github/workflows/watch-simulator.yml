@@ -77,11 +77,14 @@ jobs:
 
           runtimes = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "runtimes", "-j"]))["runtimes"]
 
-          def latest(platform):
-              candidates = [
+          def available(platform):
+              return [
                   r for r in runtimes
                   if r.get("isAvailable") and (r.get("platform") == platform or f"SimRuntime.{platform}-" in r["identifier"])
               ]
+
+          def latest(platform):
+              candidates = available(platform)
               if not candidates:
                   raise SystemExit(f"No available {platform} simulator runtime")
               return max(candidates, key=lambda r: [int(p) for p in r["version"].split(".")])
@@ -93,10 +96,14 @@ jobs:
                           return device["identifier"]
               raise SystemExit(f"No device type for {runtime['name']}")
 
-          ios, watch = latest("iOS"), latest("watchOS")
+          # iOS and watchOS share version numbers; a matching pair is the one Xcode ships together
+          # (a newer iOS runtime on the image may be a preview that does not boot).
+          watch = latest("watchOS")
+          matching = [r for r in available("iOS") if r["version"] == watch["version"]]
+          ios = matching[0] if matching else latest("iOS")
           print(f"IOS_RUNTIME={ios['identifier']}")
           print(f"WATCH_RUNTIME={watch['identifier']}")
-          print(f"PHONE_TYPE={device_type(ios, ['iPhone 17', 'iPhone'])}")
+          print(f"PHONE_TYPE={device_type(ios, ['iPhone 18 Pro', 'iPhone 18', 'iPhone 17 Pro', 'iPhone 17', 'iPhone 16', 'iPhone'])}")
           print(f"WATCH_TYPE={device_type(watch, ['Apple Watch Ultra', 'Apple Watch'])}")
           PY
           python3 "$RUNNER_TEMP/pick_simulators.py" > "$RUNNER_TEMP/simulators.env"
