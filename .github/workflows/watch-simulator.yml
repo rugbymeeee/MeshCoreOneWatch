@@ -133,8 +133,21 @@ jobs:
           xcrun simctl spawn "$WATCH" log stream --level debug --style compact --predicate "$predicate" > "$OUT/watch.log" 2>&1 &
           WATCH_LOG_PID=$!
 
-          xcrun simctl install "$WATCH" "$APP/Watch/MC1Watch.app"
+          # Install through the iPhone, as on a real device: the paired watch receives the embedded
+          # watch app, which links it to its companion (WCSession.isWatchAppInstalled). Fall back to
+          # a direct install if that does not happen.
           xcrun simctl install "$PHONE" "$APP"
+          for _ in $(seq 1 30); do
+            xcrun simctl listapps "$WATCH" | grep -q "$WATCH_BUNDLE_ID" && break
+            sleep 2
+          done
+          if xcrun simctl listapps "$WATCH" | grep -q "$WATCH_BUNDLE_ID"; then
+            echo "Watch app installed through the iPhone"
+          else
+            echo "Watch app not pushed by the iPhone; installing it directly"
+            xcrun simctl install "$WATCH" "$APP/Watch/MC1Watch.app"
+            sleep 10
+          fi
 
           # The iPhone app connects to its demo radio and publishes the watch snapshot.
           xcrun simctl launch "$PHONE" "$PHONE_BUNDLE_ID" -screenshotMode
@@ -151,7 +164,7 @@ jobs:
           echo "--- iPhone log (bridge) ---"
           grep -iE "watch (session|snapshot)" "$OUT/iphone.log" || echo "(no bridge lines)"
           echo "--- Watch log (bridge) ---"
-          grep -iE "watch snapshot" "$OUT/watch.log" || echo "(no bridge lines)"
+          grep -iE "watch (session|snapshot)" "$OUT/watch.log" || echo "(no bridge lines)"
 
       - name: Upload screenshots and logs
         if: always()

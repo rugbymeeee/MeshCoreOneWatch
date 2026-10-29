@@ -46,6 +46,7 @@ extension WatchSnapshotReceiver: WCSessionDelegate {
     if let error {
       logger.error("WCSession activation failed: \(error.localizedDescription)")
     }
+    logger.info("Watch session: activated=\(activationState == .activated), companionAppInstalled=\(session.isCompanionAppInstalled)")
     receive(session.receivedApplicationContext)
   }
 
