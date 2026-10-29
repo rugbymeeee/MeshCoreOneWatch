@@ -26,12 +26,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Select latest Xcode
-        run: |
-          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
-          echo "Using $XCODE"
-          sudo xcode-select -s "$XCODE"
-          xcodebuild -version
+      - name: Show Xcode version
+        run: xcodebuild -version
 
       - name: Ensure watchOS platform is installed
         run: |

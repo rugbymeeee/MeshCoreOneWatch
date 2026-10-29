@@ -18,7 +18,14 @@ public extension NotificationService {
     }
 
     public static let live = Self(
-      setBadgeCount: { try await UNUserNotificationCenter.current().setBadgeCount($0) },
+      setBadgeCount: { count in
+        // watchOS apps have no icon badge.
+        #if os(watchOS)
+          _ = count
+        #else
+          try await UNUserNotificationCenter.current().setBadgeCount(count)
+        #endif
+      },
       deliveredRequests: { await UNUserNotificationCenter.current().deliveredNotifications().map(\.request) },
       removeDeliveredNotifications: { UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: $0) }
     )
