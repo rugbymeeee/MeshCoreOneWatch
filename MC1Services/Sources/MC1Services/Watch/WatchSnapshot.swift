@@ -2,10 +2,10 @@ import Foundation
 
 /// Latest-wins summary the iPhone app publishes to its Apple Watch app.
 ///
-/// Carried as JSON inside a WatchConnectivity application context, so it stays a small,
-/// property-list-safe payload. Holds no timestamps of its own, so two snapshots built from
-/// unchanged data compare equal and the publisher can skip a redundant send.
-public struct WatchSnapshot: Codable, Equatable, Sendable {
+/// Carried in a WatchConnectivity application context, so it stays a small payload. Holds no
+/// timestamps of its own, so two snapshots built from unchanged data compare equal and the
+/// publisher can skip a redundant send.
+public struct WatchSnapshot: WatchConnectivityPayload, Equatable, Sendable {
   /// Radio link state as the watch shows it.
   public enum Connection: String, Codable, Sendable {
     case connected
@@ -36,27 +36,17 @@ public struct WatchSnapshot: Codable, Equatable, Sendable {
       self.unreadCount = unreadCount
       self.isMuted = isMuted
     }
+
+    /// Identifies this conversation in requests to the iPhone.
+    public var ref: WatchConversationRef {
+      WatchConversationRef(id: id, kind: kind)
+    }
   }
 
   /// Rows sent to the watch. Keeps the payload well under the application context limit.
   public static let maxConversations = 20
 
-  /// Application context key holding the encoded snapshot.
-  static let contextKey = "watchSnapshot"
-
-  /// Message key and value the watch sends to ask the iPhone for a fresh snapshot.
-  static let requestKey = "request"
-  static let refreshRequestValue = "watchSnapshot"
-
-  /// Message the watch sends to ask the iPhone for a fresh snapshot.
-  public static var refreshRequest: [String: Any] {
-    [requestKey: refreshRequestValue]
-  }
-
-  /// Whether a received WatchConnectivity message is a refresh request.
-  public static func isRefreshRequest(_ message: [String: Any]) -> Bool {
-    message[requestKey] as? String == refreshRequestValue
-  }
+  public static let payloadKey = "watchSnapshot"
 
   public var connection: Connection
   public var deviceName: String?
@@ -69,16 +59,5 @@ public struct WatchSnapshot: Codable, Equatable, Sendable {
     self.deviceName = deviceName
     self.totalUnread = totalUnread
     self.conversations = Array(conversations.prefix(Self.maxConversations))
-  }
-
-  /// Encodes into a WatchConnectivity application context.
-  public func applicationContext() throws -> [String: Any] {
-    try [Self.contextKey: JSONEncoder().encode(self)]
-  }
-
-  /// Decodes from a received application context. Returns nil when the context holds no snapshot.
-  public init?(applicationContext: [String: Any]) throws {
-    guard let data = applicationContext[Self.contextKey] as? Data else { return nil }
-    self = try JSONDecoder().decode(Self.self, from: data)
   }
 }

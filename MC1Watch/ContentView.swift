@@ -3,19 +3,23 @@ import SwiftUI
 
 /// Home screen: radio status and the iPhone's most recent conversations.
 struct ContentView: View {
-  let snapshot: WatchSnapshot?
-  let isPhoneReachable: Bool
-  let onRefresh: @MainActor () -> Void
+  let receiver: WatchSnapshotReceiver
+
+  @State private var path: [UUID] = []
+
+  private var snapshot: WatchSnapshot? {
+    receiver.snapshot
+  }
 
   var body: some View {
-    NavigationStack {
+    NavigationStack(path: $path) {
       List {
         Section {
           ConnectionRow(connection: snapshot?.connection ?? .disconnected, deviceName: snapshot?.deviceName)
         } footer: {
           if snapshot == nil {
             Text("Open MeshCore One on your iPhone to connect a radio.")
-          } else if !isPhoneReachable {
+          } else if !receiver.isPhoneReachable {
             Text("iPhone not reachable. Showing the last update.")
           }
         }
@@ -27,20 +31,39 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
             } else {
               ForEach(snapshot.conversations) { conversation in
-                ConversationRow(conversation: conversation)
+                NavigationLink(value: conversation.id) {
+                  ConversationRow(conversation: conversation)
+                }
               }
             }
           }
         }
 
-        if isPhoneReachable {
+        if receiver.isPhoneReachable {
           Section {
-            Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
+            Button("Refresh", systemImage: "arrow.clockwise", action: receiver.requestRefresh)
           }
         }
       }
       .navigationTitle("MeshCore One")
+      .navigationDestination(for: UUID.self) { id in
+        if let conversation = snapshot?.conversations.first(where: { $0.id == id }) {
+          ConversationView(conversation: conversation, receiver: receiver)
+        }
+      }
     }
+    .onChange(of: snapshot) { _, newSnapshot in
+      openFirstConversationForCI(in: newSnapshot)
+    }
+  }
+
+  /// CI hook (watch-simulator.yml): opens the first conversation that accepts messages.
+  private func openFirstConversationForCI(in snapshot: WatchSnapshot?) {
+    #if DEBUG
+      guard UserDefaults.standard.bool(forKey: "openFirstConversation"), path.isEmpty,
+            let conversation = snapshot?.conversations.first(where: { $0.ref.canSend }) else { return }
+      path.append(conversation.id)
+    #endif
   }
 }
 

@@ -138,12 +138,15 @@ jobs:
           }
 
           # Installing the iPhone app while its paired watch is running took the watch simulator
-          # down, so install it first and only then boot the watch and add the watch app. The
-          # companion app is then already present when the watch app appears.
+          # down, so install it with the watch off. The iPhone then reboots once the watch is up:
+          # a watch that misses the iPhone's first unlock keeps it unreachable
+          # (WCSession "iOSDeviceNeedsFirstUnlock"), which blocks live messages.
           boot_device "$PHONE"
           xcrun simctl install "$PHONE" "$APP"
+          xcrun simctl shutdown "$PHONE"
           boot_device "$WATCH"
           xcrun simctl install "$WATCH" "$APP/Watch/MC1Watch.app"
+          boot_device "$PHONE"
           xcrun simctl list pairs | grep -A2 "CI Watch\|CI iPhone" || true
 
           # Our logs plus WatchConnectivity's, in the apps and in the wcd daemon.
@@ -159,7 +162,8 @@ jobs:
           sleep 45
           xcrun simctl io "$PHONE" screenshot "$OUT/1-iphone.png"
 
-          xcrun simctl launch "$WATCH" "$WATCH_BUNDLE_ID"
+          # DEBUG-only launch arguments: open the first conversation and send a message from it.
+          xcrun simctl launch "$WATCH" "$WATCH_BUNDLE_ID" -openFirstConversation YES -sendTestMessage "Hello from Apple Watch"
           sleep 20
           xcrun simctl io "$WATCH" screenshot "$OUT/2-watch.png"
           sleep 40
@@ -167,9 +171,10 @@ jobs:
 
           kill "$PHONE_LOG_PID" "$WATCH_LOG_PID" 2>/dev/null || true
           echo "--- iPhone log (bridge) ---"
-          grep -iE "watch (session|snapshot|requested)|refresh" "$OUT/iphone.log" || echo "(no bridge lines)"
+          grep -iE "watch (session|snapshot|request)|refresh" "$OUT/iphone.log" || echo "(no bridge lines)"
           echo "--- Watch log (bridge) ---"
-          grep -iE "watch (session|snapshot)|refresh" "$OUT/watch.log" || echo "(no bridge lines)"
+          grep -iE "watch (session|snapshot|request)|iphone reply|refresh" "$OUT/watch.log" || echo "(no bridge lines)"
+          grep -E "WCSessionState" "$OUT/watch.log" | tail -2 | cut -c1-220 || true
 
       - name: Upload screenshots and logs
         if: always()

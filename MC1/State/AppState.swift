@@ -583,6 +583,9 @@ final class AppState {
     watchSyncService.onSnapshotNeeded = { [weak self] in
       self?.requestWatchSnapshot()
     }
+    watchSyncService.onRequest = { [weak self] request in
+      await self?.answerWatchRequest(request)
+    }
     watchSyncService.activate()
     observeConnectionStateForWatch()
     await connectionManager.activate()

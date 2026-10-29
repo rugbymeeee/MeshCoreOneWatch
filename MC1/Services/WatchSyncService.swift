@@ -19,6 +19,9 @@ final class WatchSyncService: NSObject {
   /// installed, or a refresh request from the watch. Installed by `AppState`.
   var onSnapshotNeeded: (@MainActor () -> Void)?
 
+  /// Answers the watch's other requests (recent messages, sends). Installed by `AppState`.
+  var onRequest: (@MainActor (WatchRequest) async -> WatchReply?)?
+
   private let session: WCSession? = WCSession.isSupported() ? .default : nil
   private let clock = ContinuousClock()
   private var publishTask: Task<Void, Never>?
@@ -72,7 +75,7 @@ final class WatchSyncService: NSObject {
     guard let session, session.activationState == .activated else { return }
     let context: [String: Any]
     do {
-      context = try snapshot.applicationContext()
+      context = try snapshot.payload()
     } catch {
       logger.error("Failed to encode watch snapshot: \(error.localizedDescription)")
       return
@@ -108,11 +111,37 @@ final class WatchSyncService: NSObject {
     onSnapshotNeeded?()
   }
 
-  private func handleRefreshRequest() {
+  private func handleRequest(_ request: WatchRequest) async {
+    guard case .snapshot = request else {
+      if let reply = await onRequest?(request) {
+        logger.info("Answering watch request \(request.logDescription, privacy: .public): \(reply.logDescription, privacy: .public)")
+        sendReply(reply)
+      }
+      return
+    }
     logger.info("Watch requested a snapshot")
     answersRefreshRequest = true
     lastPublished = nil
     onSnapshotNeeded?()
+  }
+
+  /// Sends a reply live while the watch app runs, or queues it for the next time it does.
+  private func sendReply(_ reply: WatchReply) {
+    guard let session, session.activationState == .activated else { return }
+    let message: [String: Any]
+    do {
+      message = try reply.payload()
+    } catch {
+      logger.error("Failed to encode watch reply: \(error.localizedDescription)")
+      return
+    }
+    if session.isReachable {
+      session.sendMessage(message, replyHandler: nil) { @Sendable error in
+        logger.error("Failed to send watch reply: \(error.localizedDescription)")
+      }
+    } else {
+      session.transferUserInfo(message)
+    }
   }
 }
 
@@ -133,8 +162,15 @@ extension WatchSyncService: WCSessionDelegate {
   }
 
   nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-    guard WatchSnapshot.isRefreshRequest(message) else { return }
-    Task { @MainActor in handleRefreshRequest() }
+    let request: WatchRequest
+    do {
+      guard let decoded = try WatchRequest(payload: message) else { return }
+      request = decoded
+    } catch {
+      logger.error("Failed to decode watch request: \(error.localizedDescription)")
+      return
+    }
+    Task { @MainActor in await handleRequest(request) }
   }
 
   nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}

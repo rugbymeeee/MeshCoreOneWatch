@@ -24,7 +24,7 @@ struct WatchSnapshotTests {
       conversations: [makeSummary(index: 0, unread: 3), makeSummary(index: 1)]
     )
 
-    let decoded = try WatchSnapshot(applicationContext: snapshot.applicationContext())
+    let decoded = try WatchSnapshot(payload: snapshot.payload())
 
     #expect(decoded == snapshot)
   }
@@ -33,26 +33,14 @@ struct WatchSnapshotTests {
   func `application context holds only property-list types`() throws {
     let snapshot = WatchSnapshot(connection: .disconnected, deviceName: nil, totalUnread: 0, conversations: [])
 
-    let context = try snapshot.applicationContext()
+    let context = try snapshot.payload()
 
     #expect(PropertyListSerialization.propertyList(context, isValidFor: .binary))
   }
 
   @Test
   func `a context without a snapshot decodes to nil`() throws {
-    #expect(try WatchSnapshot(applicationContext: [:]) == nil)
-  }
-
-  @Test
-  func `refresh request is recognized and other messages are not`() {
-    #expect(WatchSnapshot.isRefreshRequest(WatchSnapshot.refreshRequest))
-    #expect(!WatchSnapshot.isRefreshRequest([:]))
-    #expect(!WatchSnapshot.isRefreshRequest(["request": "somethingElse"]))
-  }
-
-  @Test
-  func `refresh request is property-list safe`() {
-    #expect(PropertyListSerialization.propertyList(WatchSnapshot.refreshRequest, isValidFor: .binary))
+    #expect(try WatchSnapshot(payload: [:]) == nil)
   }
 
   @Test

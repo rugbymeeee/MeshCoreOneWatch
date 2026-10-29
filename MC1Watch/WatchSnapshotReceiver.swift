@@ -5,7 +5,8 @@ import WatchConnectivity
 
 private let logger = Logger(subsystem: "com.mc1", category: "WatchSnapshotReceiver")
 
-/// Receives the `WatchSnapshot` the iPhone app publishes over WatchConnectivity.
+/// The watch app's link to the iPhone app: receives the published `WatchSnapshot`, and sends
+/// requests for a conversation's messages and for messages typed on the watch.
 ///
 /// The system persists the last application context, so the most recent snapshot is
 /// available at launch even when the iPhone is out of range.
@@ -18,6 +19,12 @@ final class WatchSnapshotReceiver: NSObject {
   /// Whether the iPhone can be reached right now. When false, `snapshot` may be out of date.
   private(set) var isPhoneReachable = false
 
+  /// Latest messages per conversation id, oldest first.
+  private(set) var messages: [UUID: [WatchMessage]] = [:]
+
+  /// Outcome of each message sent from the watch, by request id; absent while in flight.
+  private(set) var sendOutcomes: [UUID: WatchSendOutcome] = [:]
+
   func activate() {
     guard WCSession.isSupported() else { return }
     let session = WCSession.default
@@ -27,12 +34,42 @@ final class WatchSnapshotReceiver: NSObject {
 
   /// Asks the iPhone app for a fresh snapshot, which it answers with a live message.
   func requestRefresh() {
-    guard WCSession.isSupported() else { return }
-    let session = WCSession.default
-    guard session.activationState == .activated, session.isReachable else { return }
-    session.sendMessage(WatchSnapshot.refreshRequest, replyHandler: nil) { @Sendable error in
-      logger.error("Snapshot refresh request failed: \(error.localizedDescription)")
+    sendRequest(.snapshot)
+  }
+
+  /// Asks the iPhone app for the latest messages of a conversation.
+  func requestMessages(for conversation: WatchConversationRef) {
+    sendRequest(.recentMessages(conversation))
+  }
+
+  /// Sends `text` to a conversation through the iPhone app. Returns the request id whose
+  /// outcome lands in `sendOutcomes`, or nil when the iPhone cannot be reached.
+  func send(_ text: String, to conversation: WatchConversationRef) -> UUID? {
+    let id = UUID()
+    let isSent = sendRequest(.send(id: id, conversation: conversation, text: text)) { [weak self] reason in
+      self?.sendOutcomes[id] = .failed(reason: reason)
     }
+    return isSent ? id : nil
+  }
+
+  @discardableResult
+  private func sendRequest(_ request: WatchRequest, onFailure: (@MainActor @Sendable (String) -> Void)? = nil) -> Bool {
+    guard WCSession.isSupported() else { return false }
+    let session = WCSession.default
+    guard session.activationState == .activated, session.isReachable else { return false }
+    let message: [String: Any]
+    do {
+      message = try request.payload()
+    } catch {
+      logger.error("Failed to encode watch request: \(error.localizedDescription)")
+      return false
+    }
+    session.sendMessage(message, replyHandler: nil) { @Sendable error in
+      logger.error("Watch request failed: \(error.localizedDescription)")
+      let reason = error.localizedDescription
+      Task { @MainActor in onFailure?(reason) }
+    }
+    return true
   }
 
   private func updateReachability(_ isReachable: Bool) {
@@ -43,18 +80,28 @@ final class WatchSnapshotReceiver: NSObject {
     }
   }
 
-  /// Decodes off the main actor so only the Sendable snapshot crosses over.
-  private nonisolated func receive(_ context: [String: Any]) {
-    let decoded: WatchSnapshot?
-    do {
-      decoded = try WatchSnapshot(applicationContext: context)
-    } catch {
-      logger.error("Failed to decode watch snapshot: \(error.localizedDescription)")
-      return
+  private func apply(_ reply: WatchReply) {
+    logger.info("Received iPhone reply: \(reply.logDescription, privacy: .public)")
+    switch reply {
+    case let .recentMessages(conversation, conversationMessages):
+      messages[conversation.id] = conversationMessages
+    case let .sendResult(id, outcome):
+      sendOutcomes[id] = outcome
     }
-    guard let decoded else { return }
-    logger.info("Received watch snapshot: \(decoded.connection.rawValue, privacy: .public), \(decoded.conversations.count) conversations")
-    Task { @MainActor in snapshot = decoded }
+  }
+
+  /// Decodes off the main actor so only Sendable values cross over.
+  private nonisolated func receive(_ payload: [String: Any]) {
+    do {
+      if let snapshot = try WatchSnapshot(payload: payload) {
+        logger.info("Received watch snapshot: \(snapshot.connection.rawValue, privacy: .public), \(snapshot.conversations.count) conversations")
+        Task { @MainActor in self.snapshot = snapshot }
+      } else if let reply = try WatchReply(payload: payload) {
+        Task { @MainActor in apply(reply) }
+      }
+    } catch {
+      logger.error("Failed to decode iPhone payload: \(error.localizedDescription)")
+    }
   }
 }
 
@@ -82,8 +129,13 @@ extension WatchSnapshotReceiver: WCSessionDelegate {
     receive(applicationContext)
   }
 
-  /// The iPhone's live answer to `requestRefresh()`.
+  /// Live replies and refresh answers from the iPhone.
   nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
     receive(message)
+  }
+
+  /// Replies the iPhone queued while this app was not running.
+  nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+    receive(userInfo)
   }
 }
