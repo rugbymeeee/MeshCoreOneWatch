@@ -584,6 +584,7 @@ final class AppState {
       self?.requestWatchSnapshot()
     }
     watchSyncService.activate()
+    observeConnectionStateForWatch()
     await connectionManager.activate()
     // Check if disconnected pill should show (for fresh launch after termination)
     connectionUI.updateDisconnectedPillState(
@@ -652,8 +653,6 @@ final class AppState {
 
   /// Wire services-dependent callbacks after a successful connection.
   func wireServicesIfConnected() async {
-    // Runs on both connection ready and connection lost; the watch shows either.
-    requestWatchSnapshot()
     reconcileConnectionLinkSwitch()
     guard let services else {
       tearDownAppStateSessionState()

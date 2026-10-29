@@ -10,6 +10,19 @@ extension AppState {
     }
   }
 
+  /// Republishes on every connection state change, so the watch follows connecting,
+  /// ready, and lost no matter which lifecycle callback (if any) accompanies the change.
+  func observeConnectionStateForWatch() {
+    withObservationTracking {
+      _ = connectionState
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.requestWatchSnapshot()
+        self?.observeConnectionStateForWatch()
+      }
+    }
+  }
+
   /// Builds the snapshot from the current radio's stored conversations, using the
   /// same row rules and ordering as the iPhone chat list (pins first, then most recent).
   func makeWatchSnapshot() async -> WatchSnapshot {
