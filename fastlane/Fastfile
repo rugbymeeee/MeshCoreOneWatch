@@ -55,6 +55,16 @@ platform :ios do
       targets: ["MC1Widgets"]
     )
 
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "MC1.xcodeproj",
+      team_id: ENV["TEAM_ID"],
+      bundle_identifier: "io.pocketmesh.app.watchkitapp",
+      code_sign_identity: "iPhone Distribution",
+      profile_name: "match AppStore io.pocketmesh.app.watchkitapp",
+      targets: ["MC1Watch"]
+    )
+
     # Configure App Store Connect API key
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
@@ -109,6 +119,16 @@ platform :ios do
       code_sign_identity: "iPhone Distribution",
       profile_name: "match AppStore io.pocketmesh.app.widgets",
       targets: ["MC1Widgets"]
+    )
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "MC1.xcodeproj",
+      team_id: ENV["TEAM_ID"],
+      bundle_identifier: "io.pocketmesh.app.watchkitapp",
+      code_sign_identity: "iPhone Distribution",
+      profile_name: "match AppStore io.pocketmesh.app.watchkitapp",
+      targets: ["MC1Watch"]
     )
 
     # Configure App Store Connect API key
