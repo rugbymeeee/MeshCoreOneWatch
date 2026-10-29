@@ -4,6 +4,8 @@ import SwiftUI
 /// Home screen: radio status and the iPhone's most recent conversations.
 struct ContentView: View {
   let snapshot: WatchSnapshot?
+  let isPhoneReachable: Bool
+  let onRefresh: @MainActor () -> Void
 
   var body: some View {
     NavigationStack {
@@ -13,6 +15,8 @@ struct ContentView: View {
         } footer: {
           if snapshot == nil {
             Text("Open MeshCore One on your iPhone to connect a radio.")
+          } else if !isPhoneReachable {
+            Text("iPhone not reachable. Showing the last update.")
           }
         }
 
@@ -26,6 +30,12 @@ struct ContentView: View {
                 ConversationRow(conversation: conversation)
               }
             }
+          }
+        }
+
+        if isPhoneReachable {
+          Section {
+            Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
           }
         }
       }
@@ -56,19 +66,20 @@ private struct ConnectionRow: View {
 private struct ConversationRow: View {
   let conversation: WatchSnapshot.ConversationSummary
 
-  private var iconName: String {
+  private var kind: (icon: String, label: LocalizedStringKey) {
     switch conversation.kind {
-    case .direct: "person.fill"
-    case .channel: "number"
-    case .room: "bubble.left.and.bubble.right.fill"
+    case .direct: ("person.fill", "Direct Message")
+    case .channel: ("number", "Channel")
+    case .room: ("bubble.left.and.bubble.right.fill", "Room")
     }
   }
 
   var body: some View {
     HStack {
-      Image(systemName: iconName)
+      Image(systemName: kind.icon)
         .foregroundStyle(.secondary)
         .frame(width: 20)
+        .accessibilityLabel(Text(kind.label))
 
       VStack(alignment: .leading) {
         Text(conversation.name)
@@ -86,13 +97,16 @@ private struct ConversationRow: View {
         Image(systemName: "bell.slash.fill")
           .font(.footnote)
           .foregroundStyle(.secondary)
+          .accessibilityLabel(Text("Muted"))
       }
       if conversation.unreadCount > 0 {
         Text(conversation.unreadCount, format: .number)
           .font(.footnote.bold())
           .padding(.horizontal, 6)
           .background(Capsule().fill(conversation.isMuted ? Color.gray : Color.blue))
+          .accessibilityLabel(Text("\(conversation.unreadCount) unread"))
       }
     }
+    .accessibilityElement(children: .combine)
   }
 }

@@ -3,24 +3,32 @@ import MC1Services
 import OSLog
 import WatchConnectivity
 
+private let logger = Logger(subsystem: "com.mc1", category: "WatchSyncService")
+
 /// Publishes a `WatchSnapshot` to the paired Apple Watch app through the WatchConnectivity
 /// application context, which is latest-wins and reaches the watch even when its app is not running.
 ///
 /// Does no work unless a paired watch has the app installed, so users without a watch pay nothing.
 @MainActor
 final class WatchSyncService: NSObject {
-  private let logger = Logger(subsystem: "com.mc1", category: "WatchSyncService")
+  /// Minimum spacing between sends. Throttles rather than debounces: the first change goes out at
+  /// once, and a steady stream of changes still reaches the watch at least this often.
+  static let minimumPublishInterval: Duration = .seconds(2)
 
-  /// Coalesces bursts of conversation changes (a sync, a flood of messages) into one send.
-  static let publishDelay: Duration = .seconds(1)
-
-  /// Called when the watch needs a fresh snapshot: session activation or the watch app
-  /// becoming installed. Installed by `AppState`.
+  /// Called when the watch needs a fresh snapshot: session activation, the watch app becoming
+  /// installed, or a refresh request from the watch. Installed by `AppState`.
   var onSnapshotNeeded: (@MainActor () -> Void)?
 
   private let session: WCSession? = WCSession.isSupported() ? .default : nil
+  private let clock = ContinuousClock()
   private var publishTask: Task<Void, Never>?
+  /// Builds the next snapshot; a request that arrives while a send is pending replaces it.
+  private var pendingSnapshot: (@MainActor () async -> WatchSnapshot?)?
+  private var lastPublishAttempt: ContinuousClock.Instant?
   private var lastPublished: WatchSnapshot?
+  /// Set by a refresh request: the next snapshot also goes out as a live message, which reaches
+  /// the running watch app even before `isWatchAppInstalled` reports it.
+  private var answersRefreshRequest = false
 
   /// True when a paired watch has the app installed and the session can deliver.
   private var canPublish: Bool {
@@ -34,21 +42,54 @@ final class WatchSyncService: NSObject {
     session.activate()
   }
 
-  /// Schedules a send of the snapshot `makeSnapshot` builds, replacing any pending send.
+  /// Schedules a send of the snapshot `makeSnapshot` builds. The snapshot is built when the send
+  /// fires, so it always reflects the latest data.
   func requestPublish(_ makeSnapshot: @escaping @MainActor () async -> WatchSnapshot?) {
-    guard canPublish else { return }
-    publishTask?.cancel()
+    guard canPublish || answersRefreshRequest else { return }
+    pendingSnapshot = makeSnapshot
+    guard publishTask == nil else { return }
     publishTask = Task { [weak self] in
-      try? await Task.sleep(for: Self.publishDelay)
-      guard !Task.isCancelled, let snapshot = await makeSnapshot(), !Task.isCancelled else { return }
-      self?.publish(snapshot)
+      await self?.drainPendingPublishes()
     }
   }
 
+  private func drainPendingPublishes() async {
+    while pendingSnapshot != nil {
+      if let lastPublishAttempt {
+        try? await clock.sleep(until: lastPublishAttempt + Self.minimumPublishInterval)
+      }
+      guard let makeSnapshot = pendingSnapshot else { break }
+      pendingSnapshot = nil
+      lastPublishAttempt = clock.now
+      if let snapshot = await makeSnapshot() {
+        publish(snapshot)
+      }
+    }
+    publishTask = nil
+  }
+
   private func publish(_ snapshot: WatchSnapshot) {
-    guard let session, canPublish, snapshot != lastPublished else { return }
+    guard let session, session.activationState == .activated else { return }
+    let context: [String: Any]
     do {
-      try session.updateApplicationContext(snapshot.applicationContext())
+      context = try snapshot.applicationContext()
+    } catch {
+      logger.error("Failed to encode watch snapshot: \(error.localizedDescription)")
+      return
+    }
+
+    if answersRefreshRequest {
+      answersRefreshRequest = false
+      if session.isReachable {
+        session.sendMessage(context, replyHandler: nil) { @Sendable error in
+          logger.error("Failed to answer watch refresh: \(error.localizedDescription)")
+        }
+      }
+    }
+
+    guard canPublish, snapshot != lastPublished else { return }
+    do {
+      try session.updateApplicationContext(context)
       lastPublished = snapshot
       logger.info("Published watch snapshot with \(snapshot.conversations.count) conversations")
     } catch {
@@ -66,6 +107,13 @@ final class WatchSyncService: NSObject {
     lastPublished = nil
     onSnapshotNeeded?()
   }
+
+  private func handleRefreshRequest() {
+    logger.info("Watch requested a snapshot")
+    answersRefreshRequest = true
+    lastPublished = nil
+    onSnapshotNeeded?()
+  }
 }
 
 extension WatchSyncService: WCSessionDelegate {
@@ -75,14 +123,18 @@ extension WatchSyncService: WCSessionDelegate {
     error: (any Error)?
   ) {
     if let error {
-      Logger(subsystem: "com.mc1", category: "WatchSyncService")
-        .error("WCSession activation failed: \(error.localizedDescription)")
+      logger.error("WCSession activation failed: \(error.localizedDescription)")
     }
     Task { @MainActor in handleSessionStateChange() }
   }
 
   nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
     Task { @MainActor in handleSessionStateChange() }
+  }
+
+  nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    guard WatchSnapshot.isRefreshRequest(message) else { return }
+    Task { @MainActor in handleRefreshRequest() }
   }
 
   nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}

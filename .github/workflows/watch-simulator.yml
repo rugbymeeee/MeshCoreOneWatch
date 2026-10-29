@@ -167,9 +167,9 @@ jobs:
 
           kill "$PHONE_LOG_PID" "$WATCH_LOG_PID" 2>/dev/null || true
           echo "--- iPhone log (bridge) ---"
-          grep -iE "watch (session|snapshot)" "$OUT/iphone.log" || echo "(no bridge lines)"
+          grep -iE "watch (session|snapshot|requested)|refresh" "$OUT/iphone.log" || echo "(no bridge lines)"
           echo "--- Watch log (bridge) ---"
-          grep -iE "watch (session|snapshot)" "$OUT/watch.log" || echo "(no bridge lines)"
+          grep -iE "watch (session|snapshot)|refresh" "$OUT/watch.log" || echo "(no bridge lines)"
 
       - name: Upload screenshots and logs
         if: always()

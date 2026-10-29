@@ -44,6 +44,20 @@ public struct WatchSnapshot: Codable, Equatable, Sendable {
   /// Application context key holding the encoded snapshot.
   static let contextKey = "watchSnapshot"
 
+  /// Message key and value the watch sends to ask the iPhone for a fresh snapshot.
+  static let requestKey = "request"
+  static let refreshRequestValue = "watchSnapshot"
+
+  /// Message the watch sends to ask the iPhone for a fresh snapshot.
+  public static var refreshRequest: [String: Any] {
+    [requestKey: refreshRequestValue]
+  }
+
+  /// Whether a received WatchConnectivity message is a refresh request.
+  public static func isRefreshRequest(_ message: [String: Any]) -> Bool {
+    message[requestKey] as? String == refreshRequestValue
+  }
+
   public var connection: Connection
   public var deviceName: String?
   public var totalUnread: Int

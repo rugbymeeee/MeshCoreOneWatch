@@ -44,6 +44,18 @@ struct WatchSnapshotTests {
   }
 
   @Test
+  func `refresh request is recognized and other messages are not`() {
+    #expect(WatchSnapshot.isRefreshRequest(WatchSnapshot.refreshRequest))
+    #expect(!WatchSnapshot.isRefreshRequest([:]))
+    #expect(!WatchSnapshot.isRefreshRequest(["request": "somethingElse"]))
+  }
+
+  @Test
+  func `refresh request is property-list safe`() {
+    #expect(PropertyListSerialization.propertyList(WatchSnapshot.refreshRequest, isValidFor: .binary))
+  }
+
+  @Test
   func `conversations are capped at maxConversations keeping the first rows`() {
     let summaries = (0..<(WatchSnapshot.maxConversations + 5)).map { makeSummary(index: $0) }
 
