@@ -3,6 +3,8 @@ name: Watch Simulator
 # End-to-end check of the iPhone -> Apple Watch bridge without hardware: runs the iPhone app
 # on its demo radio (-screenshotMode, Debug + simulator only) next to the watch app in a
 # paired watch simulator, then uploads screenshots and logs as the "watch-simulator" artifact.
+# Takes 15-30 minutes on hosted runners, so a push runs it only when its commit message
+# contains "[sim]".
 
 on:
   push:
@@ -24,8 +26,9 @@ concurrency:
 jobs:
   simulators:
     name: iPhone + Apple Watch simulators
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[sim]')
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 35
     env:
       OUT: ${{ github.workspace }}/watch-simulator
       PHONE_BUNDLE_ID: io.pocketmeshtest.app
@@ -138,15 +141,14 @@ jobs:
           }
 
           # Installing the iPhone app while its paired watch is running took the watch simulator
-          # down, so install it with the watch off. The iPhone then reboots once the watch is up:
-          # a watch that misses the iPhone's first unlock keeps it unreachable
-          # (WCSession "iOSDeviceNeedsFirstUnlock"), which blocks live messages.
+          # down, so install it first and only then boot the watch and add the watch app. Do not
+          # reboot the paired iPhone afterwards: it crashed simctl (SimDeviceSet addDevicePairAsync).
+          # Live messages also need the watch to see the iPhone as unlocked, which paired
+          # simulators do not always report (WCSession "iOSDeviceNeedsFirstUnlock").
           boot_device "$PHONE"
           xcrun simctl install "$PHONE" "$APP"
-          xcrun simctl shutdown "$PHONE"
           boot_device "$WATCH"
           xcrun simctl install "$WATCH" "$APP/Watch/MC1Watch.app"
-          boot_device "$PHONE"
           xcrun simctl list pairs | grep -A2 "CI Watch\|CI iPhone" || true
 
           # Our logs plus WatchConnectivity's, in the apps and in the wcd daemon.
