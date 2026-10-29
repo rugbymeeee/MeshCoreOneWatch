@@ -47,3 +47,34 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO
+
+  # lint.yml only runs on main/dev and PRs; mirror it for feature-branch pushes.
+  lint:
+    name: Formatting and Linting
+    if: github.event_name == 'push'
+    runs-on: xcode-27
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install SwiftLint
+        run: command -v swiftlint >/dev/null 2>&1 || brew install swiftlint
+
+      - name: Install SwiftFormat
+        env:
+          SWIFTFORMAT_VERSION: 0.63.0
+        run: |
+          curl -sSL --fail -o /tmp/swiftformat.zip \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip"
+          unzip -o -q /tmp/swiftformat.zip -d /tmp/swiftformat-bin
+          chmod +x /tmp/swiftformat-bin/swiftformat
+          echo "/tmp/swiftformat-bin" >> "$GITHUB_PATH"
+
+      - name: Lint
+        run: swiftlint lint --strict
+
+      - name: Format
+        run: swiftformat --lint --strict .
