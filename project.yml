@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.meshcoreone
   deploymentTarget:
     iOS: "18.0"
+    watchOS: "11.0"
   xcodeVersion: "27.0"
   generateEmptyDirectories: true
 
@@ -135,6 +136,34 @@ targets:
           INFOPLIST_FILE: MC1Widgets/Info.plist
           PRODUCT_BUNDLE_IDENTIFIER: io.pocketmesh.app.widgets
 
+  # Single-target watchOS app. Not yet embedded in MC1; that lands with the
+  # iPhone <-> Watch bridge.
+  MC1Watch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: MC1Watch
+        excludes:
+          - "**/*.md"
+      - path: AppIcon.icon
+    dependencies:
+      - package: MC1Services
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: MC1Watch/Info.plist
+        MARKETING_VERSION: 1.6.1
+        CURRENT_PROJECT_VERSION: 1
+        VERSIONING_SYSTEM: apple-generic
+        TARGETED_DEVICE_FAMILY: "4"
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: io.pocketmeshtest.app.watchkitapp
+          MC1_COMPANION_BUNDLE_IDENTIFIER: io.pocketmeshtest.app
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: io.pocketmesh.app.watchkitapp
+          MC1_COMPANION_BUNDLE_IDENTIFIER: io.pocketmesh.app
+
 schemes:
   MC1:
     build:
@@ -151,6 +180,18 @@ schemes:
       targets:
         - name: MC1Tests
           parallelizable: false
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  MC1Watch:
+    build:
+      targets:
+        MC1Watch: all
+    run:
+      config: Debug
     profile:
       config: Release
     analyze:

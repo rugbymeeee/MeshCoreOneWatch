@@ -48,6 +48,45 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO
 
+  watch-app:
+    name: Build Apple Watch app
+    runs-on: xcode-27
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install make
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+
+      - name: Generate Xcode project
+        run: make generate
+
+      - name: Ensure watchOS Simulator platform is installed
+        run: |
+          if ! xcodebuild -showsdks | grep -q watchsimulator; then
+            echo "watchOS Simulator SDK missing - downloading platform"
+            xcodebuild -downloadPlatform watchOS
+          fi
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project MC1.xcodeproj \
+            -scheme MC1Watch \
+            -destination "generic/platform=watchOS Simulator" \
+            -derivedDataPath .derivedData \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
   # lint.yml only runs on main/dev and PRs; mirror it for feature-branch pushes.
   lint:
     name: Formatting and Linting
