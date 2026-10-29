@@ -5,7 +5,8 @@ let package = Package(
   name: "MeshCore",
   platforms: [
     .iOS(.v18),
-    .macOS(.v15)
+    .macOS(.v15),
+    .watchOS(.v11)
   ],
   products: [
     .library(

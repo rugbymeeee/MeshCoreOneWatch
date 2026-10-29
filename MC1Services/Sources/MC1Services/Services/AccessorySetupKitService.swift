@@ -1,4 +1,4 @@
-#if canImport(UIKit)
+#if os(iOS)
   import AccessorySetupKit
   import CoreBluetooth
   import os
@@ -556,7 +556,7 @@
   }
 
 #else
-  // macOS stubs for compilation
+  // macOS and watchOS stubs for compilation (AccessorySetupKit is iOS-only)
   import Foundation
 
   struct ASAccessory {

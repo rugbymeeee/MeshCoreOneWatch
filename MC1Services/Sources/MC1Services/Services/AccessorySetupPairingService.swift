@@ -1,4 +1,4 @@
-#if canImport(UIKit)
+#if os(iOS)
   import AccessorySetupKit
 #endif
 import Foundation
@@ -71,7 +71,7 @@ final class AccessorySetupPairingService: DevicePairingService {
     do {
       try await accessorySetupKit.removeAccessory(accessory)
     } catch {
-      #if canImport(UIKit)
+      #if os(iOS)
         if let asError = error as? ASError, asError.code == .userCancelled {
           throw DevicePairingError.cancelled
         }

@@ -1,0 +1,53 @@
+name: watchOS Build
+
+on:
+  push:
+    branches:
+      - "feature/**"
+  pull_request:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  watchos-packages:
+    name: Build packages for watchOS
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Select latest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Ensure watchOS platform is installed
+        run: |
+          if ! xcodebuild -showsdks | grep -q watchos; then
+            echo "watchOS SDK missing - downloading platform"
+            xcodebuild -downloadPlatform watchOS
+          fi
+          xcodebuild -showsdks | grep -i watch
+
+      # MC1Services depends on MeshCore, so this builds both packages.
+      - name: Build MC1Services for watchOS
+        working-directory: MC1Services
+        run: |
+          xcodebuild build \
+            -scheme MC1Services \
+            -destination "generic/platform=watchOS" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
