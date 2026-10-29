@@ -32,6 +32,7 @@ final class WatchSnapshotReceiver: NSObject {
       return
     }
     guard let decoded else { return }
+    logger.info("Received watch snapshot: \(decoded.connection.rawValue, privacy: .public), \(decoded.conversations.count) conversations")
     Task { @MainActor in snapshot = decoded }
   }
 }

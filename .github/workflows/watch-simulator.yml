@@ -1,0 +1,152 @@
+name: Watch Simulator
+
+# End-to-end check of the iPhone -> Apple Watch bridge without hardware: runs the iPhone app
+# on its demo radio (-screenshotMode, Debug + simulator only) next to the watch app in a
+# paired watch simulator, then uploads screenshots and logs as the "watch-simulator" artifact.
+
+on:
+  push:
+    branches:
+      - "feature/**"
+    paths:
+      - "MC1/**"
+      - "MC1Watch/**"
+      - "MC1Services/**"
+      - "MeshCore/**"
+      - "project.yml"
+      - ".github/workflows/watch-simulator.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulators:
+    name: iPhone + Apple Watch simulators
+    runs-on: xcode-27
+    timeout-minutes: 45
+    env:
+      OUT: ${{ github.workspace }}/watch-simulator
+      PHONE_BUNDLE_ID: io.pocketmeshtest.app
+      WATCH_BUNDLE_ID: io.pocketmeshtest.app.watchkitapp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install make
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          command -v swiftgen >/dev/null 2>&1 || brew install swiftgen
+
+      - name: Generate Xcode project
+        run: make generate
+
+      - name: Build for the simulator
+        run: |
+          xcodebuild build \
+            -project MC1.xcodeproj \
+            -scheme MC1 \
+            -configuration Debug \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath .derivedData \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Ensure the watchOS simulator runtime is installed
+        run: |
+          if ! xcrun simctl list runtimes | grep -q watchOS; then
+            echo "watchOS simulator runtime missing - downloading platform"
+            xcodebuild -downloadPlatform watchOS
+          fi
+          xcrun simctl list runtimes
+
+      - name: Create and boot a paired iPhone and Apple Watch
+        run: |
+          # Newest available iOS and watchOS runtimes, preferring an Ultra watch.
+          eval "$(python3 - <<'PY'
+          import json, subprocess
+
+          runtimes = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "runtimes", "-j"]))["runtimes"]
+
+          def latest(platform):
+              candidates = [
+                  r for r in runtimes
+                  if r.get("isAvailable") and (r.get("platform") == platform or f"SimRuntime.{platform}-" in r["identifier"])
+              ]
+              if not candidates:
+                  raise SystemExit(f"No available {platform} simulator runtime")
+              return max(candidates, key=lambda r: [int(p) for p in r["version"].split(".")])
+
+          def device_type(runtime, prefixes):
+              for prefix in prefixes:
+                  for device in runtime["supportedDeviceTypes"]:
+                      if device["name"].startswith(prefix):
+                          return device["identifier"]
+              raise SystemExit(f"No device type for {runtime['name']}")
+
+          ios, watch = latest("iOS"), latest("watchOS")
+          print(f"IOS_RUNTIME={ios['identifier']}")
+          print(f"WATCH_RUNTIME={watch['identifier']}")
+          print(f"PHONE_TYPE={device_type(ios, ['iPhone 17', 'iPhone'])}")
+          print(f"WATCH_TYPE={device_type(watch, ['Apple Watch Ultra', 'Apple Watch'])}")
+          PY
+          )"
+          echo "iPhone: $PHONE_TYPE on $IOS_RUNTIME"
+          echo "Watch:  $WATCH_TYPE on $WATCH_RUNTIME"
+
+          PHONE=$(xcrun simctl create "CI iPhone" "$PHONE_TYPE" "$IOS_RUNTIME")
+          WATCH=$(xcrun simctl create "CI Watch" "$WATCH_TYPE" "$WATCH_RUNTIME")
+          xcrun simctl pair "$WATCH" "$PHONE"
+          xcrun simctl boot "$PHONE"
+          xcrun simctl boot "$WATCH"
+          xcrun simctl bootstatus "$PHONE" -b
+          xcrun simctl bootstatus "$WATCH" -b
+          xcrun simctl list pairs
+
+          echo "PHONE=$PHONE" >> "$GITHUB_ENV"
+          echo "WATCH=$WATCH" >> "$GITHUB_ENV"
+
+      - name: Run the apps and take screenshots
+        run: |
+          mkdir -p "$OUT"
+          APP=.derivedData/Build/Products/Debug-iphonesimulator/MC1.app
+          predicate='subsystem == "com.mc1" OR subsystem CONTAINS[c] "watchconnectivity"'
+          xcrun simctl spawn "$PHONE" log stream --level debug --style compact --predicate "$predicate" > "$OUT/iphone.log" 2>&1 &
+          PHONE_LOG_PID=$!
+          xcrun simctl spawn "$WATCH" log stream --level debug --style compact --predicate "$predicate" > "$OUT/watch.log" 2>&1 &
+          WATCH_LOG_PID=$!
+
+          xcrun simctl install "$WATCH" "$APP/Watch/MC1Watch.app"
+          xcrun simctl install "$PHONE" "$APP"
+
+          # The iPhone app connects to its demo radio and publishes the watch snapshot.
+          xcrun simctl launch "$PHONE" "$PHONE_BUNDLE_ID" -screenshotMode
+          sleep 45
+          xcrun simctl io "$PHONE" screenshot "$OUT/1-iphone.png"
+
+          xcrun simctl launch "$WATCH" "$WATCH_BUNDLE_ID"
+          sleep 20
+          xcrun simctl io "$WATCH" screenshot "$OUT/2-watch.png"
+          sleep 40
+          xcrun simctl io "$WATCH" screenshot "$OUT/3-watch-later.png"
+
+          kill "$PHONE_LOG_PID" "$WATCH_LOG_PID" 2>/dev/null || true
+          echo "--- iPhone log (bridge) ---"
+          grep -iE "watch (session|snapshot)" "$OUT/iphone.log" || echo "(no bridge lines)"
+          echo "--- Watch log (bridge) ---"
+          grep -iE "watch snapshot" "$OUT/watch.log" || echo "(no bridge lines)"
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-simulator
+          path: watch-simulator

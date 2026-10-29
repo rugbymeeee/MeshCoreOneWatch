@@ -50,12 +50,18 @@ final class WatchSyncService: NSObject {
     do {
       try session.updateApplicationContext(snapshot.applicationContext())
       lastPublished = snapshot
+      logger.info("Published watch snapshot with \(snapshot.conversations.count) conversations")
     } catch {
       logger.error("Failed to publish watch snapshot: \(error.localizedDescription)")
     }
   }
 
   private func handleSessionStateChange() {
+    if let session {
+      logger.info(
+        "Watch session: activated=\(session.activationState == .activated), paired=\(session.isPaired), appInstalled=\(session.isWatchAppInstalled)"
+      )
+    }
     // A reinstalled or newly paired watch starts empty, so the next send must not be deduplicated.
     lastPublished = nil
     onSnapshotNeeded?()
