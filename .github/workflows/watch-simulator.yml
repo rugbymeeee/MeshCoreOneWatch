@@ -70,8 +70,9 @@ jobs:
 
       - name: Create and boot a paired iPhone and Apple Watch
         run: |
-          # Newest available iOS and watchOS runtimes, preferring an Ultra watch.
-          eval "$(python3 - <<'PY'
+          # Newest available iOS and watchOS runtimes, preferring an Ultra watch. The script goes
+          # through a file: macOS bash 3.2 cannot parse a heredoc inside $(...).
+          cat > "$RUNNER_TEMP/pick_simulators.py" <<'PY'
           import json, subprocess
 
           runtimes = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "runtimes", "-j"]))["runtimes"]
@@ -98,7 +99,8 @@ jobs:
           print(f"PHONE_TYPE={device_type(ios, ['iPhone 17', 'iPhone'])}")
           print(f"WATCH_TYPE={device_type(watch, ['Apple Watch Ultra', 'Apple Watch'])}")
           PY
-          )"
+          python3 "$RUNNER_TEMP/pick_simulators.py" > "$RUNNER_TEMP/simulators.env"
+          source "$RUNNER_TEMP/simulators.env"
           echo "iPhone: $PHONE_TYPE on $IOS_RUNTIME"
           echo "Watch:  $WATCH_TYPE on $WATCH_RUNTIME"
 
