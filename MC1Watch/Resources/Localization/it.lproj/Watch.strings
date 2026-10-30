@@ -1,0 +1,61 @@
+/*
+  Watch.strings
+  MC1Watch
+
+  Italian translation of strings for the Apple Watch app.
+  AI-translated - please verify with native speakers.
+*/
+
+// MARK: - Home
+
+/* Location: ContentView.swift - Navigation title of the home screen, the app name */
+"watch.home.title" = "MeshCore One";
+
+/* Location: ContentView.swift - Section header for the conversation list */
+"watch.home.conversations" = "Conversazioni";
+
+/* Location: ContentView.swift - Shown when the iPhone has no conversations */
+"watch.home.empty" = "Nessuna conversazione";
+
+/* Location: ContentView.swift - Button asking the iPhone for fresh data */
+"watch.home.refresh" = "Aggiorna";
+
+/* Location: ContentView.swift - Home footer before any data has arrived from the iPhone */
+"watch.home.footer.noData" = "Apri MeshCore One sul tuo iPhone per connettere una radio.";
+
+/* Location: ContentView.swift - Home footer when the iPhone is out of reach */
+"watch.home.footer.unreachable" = "iPhone non raggiungibile. Viene mostrato l'ultimo aggiornamento.";
+
+// MARK: - Connection
+
+/* Location: ContentView.swift - Radio status when the radio has no name */
+"watch.connection.connected" = "Connesso";
+
+/* Location: ContentView.swift - Radio status while connecting */
+"watch.connection.connecting" = "Connessione…";
+
+/* Location: ContentView.swift - Radio status when no radio is connected */
+"watch.connection.notConnected" = "Non connessa";
+
+// MARK: - Accessibility
+
+/* Location: ContentView.swift - VoiceOver label for a direct message conversation */
+"watch.accessibility.directMessage" = "Messaggio diretto";
+
+/* Location: ContentView.swift - VoiceOver label for a channel conversation */
+"watch.accessibility.channel" = "Canale";
+
+/* Location: ContentView.swift - VoiceOver label for a room conversation */
+"watch.accessibility.room" = "Stanza";
+
+/* Location: ContentView.swift - VoiceOver label for a muted conversation */
+"watch.accessibility.muted" = "Silenziato";
+
+/* Location: ContentView.swift - VoiceOver label for a conversation that notifies on mentions only */
+"watch.accessibility.mentionsOnly" = "Solo menzioni";
+
+/* Location: ContentView.swift - VoiceOver label for the @ badge */
+"watch.accessibility.unreadMention" = "Menzione non letta";
+
+/* Location: ContentView.swift - VoiceOver label for the unread count badge. %d is the number of unread messages */
+"watch.accessibility.unreadCount" = "Non letti: %d";

@@ -58,6 +58,7 @@ Download from the App Store or sideload using unsigned IPA files under [Releases
 - Repeat mode
 
 ### General
+- Apple Watch companion app (radio status and conversation list)
 - Live Activity
 - Themes
 - Offline mesh networking (no internet required)
@@ -70,6 +71,7 @@ Download from the App Store or sideload using unsigned IPA files under [Releases
 ## Requirements
 
 -   **iOS/iPadOS 18.0+, or Apple Silicon Mac**
+-   **Apple Watch app (optional): watchOS 10.0+, paired with an iPhone running MeshCore One**
 -   **Xcode 26.0+**
 -   **MeshCore-compatible hardware**
 

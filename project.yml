@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.meshcoreone
   deploymentTarget:
     iOS: "18.0"
+    watchOS: "10.0"
   xcodeVersion: "27.0"
   generateEmptyDirectories: true
 
@@ -44,10 +45,13 @@ targets:
       - path: Shared
     dependencies:
       - package: MC1Services
+      - package: MC1Services
+        product: MC1WatchShared
       - package: Emojibase
       - package: MapLibre
       - package: MessagingUI
       - target: MC1Widgets
+      - target: MC1Watch
     preBuildScripts:
       - name: SwiftGen
         script: |
@@ -135,6 +139,51 @@ targets:
           INFOPLIST_FILE: MC1Widgets/Info.plist
           PRODUCT_BUNDLE_IDENTIFIER: io.pocketmesh.app.widgets
 
+  # Apple Watch companion app, embedded in MC1. Shows what the iPhone app
+  # publishes over WatchConnectivity, so it links only MC1WatchShared.
+  # MARKETING_VERSION must match MC1's, or App Store validation rejects the build.
+  MC1Watch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: MC1Watch
+        excludes:
+          - "**/*.md"
+      - path: AppIcon.icon
+    dependencies:
+      - package: MC1Services
+        product: MC1WatchShared
+    preBuildScripts:
+      - name: SwiftGen
+        script: |
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          if ! command -v swiftgen &> /dev/null; then
+              echo "error: SwiftGen not installed. Install with: brew install swiftgen"
+              exit 1
+          fi
+          swiftgen config run --config "${PROJECT_DIR}/swiftgen-watch.yml"
+        inputFiles:
+          - $(PROJECT_DIR)/swiftgen-watch.yml
+          - $(PROJECT_DIR)/MC1Watch/Resources/Localization/en.lproj/Watch.strings
+        outputFiles:
+          - $(PROJECT_DIR)/MC1Watch/Resources/Generated/L10n.swift
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: MC1Watch/Info.plist
+        MARKETING_VERSION: 1.6.2
+        CURRENT_PROJECT_VERSION: 1
+        VERSIONING_SYSTEM: apple-generic
+        TARGETED_DEVICE_FAMILY: "4"
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: io.pocketmeshtest.app.watchkitapp
+          MC1_COMPANION_BUNDLE_IDENTIFIER: io.pocketmeshtest.app
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: io.pocketmesh.app.watchkitapp
+          MC1_COMPANION_BUNDLE_IDENTIFIER: io.pocketmesh.app
+
 schemes:
   MC1:
     build:
@@ -151,6 +200,18 @@ schemes:
       targets:
         - name: MC1Tests
           parallelizable: false
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  MC1Watch:
+    build:
+      targets:
+        MC1Watch: all
+    run:
+      config: Debug
     profile:
       config: Release
     analyze:

@@ -1,4 +1,27 @@
 import Foundation
+import MC1Services
+
+extension Conversation {
+  /// Chat-list rows for fetched data, unsorted. Hides repeaters, blocked contacts,
+  /// unnamed channels without a secret, and any id in `hiddenIDs`.
+  static func chatListRows(
+    contacts: [ContactDTO],
+    channels: [ChannelDTO],
+    rooms: [RemoteNodeSessionDTO],
+    hiding hiddenIDs: Set<UUID> = []
+  ) -> [Conversation] {
+    let contactConversations = contacts
+      .filter { $0.type != .repeater && !$0.isBlocked && !hiddenIDs.contains($0.id) }
+      .map { Conversation.direct($0) }
+    let channelConversations = channels
+      .filter { (!$0.name.isEmpty || $0.hasSecret) && !hiddenIDs.contains($0.id) }
+      .map { Conversation.channel($0) }
+    let roomConversations = rooms
+      .filter { !hiddenIDs.contains($0.id) }
+      .map { Conversation.room($0) }
+    return contactConversations + channelConversations + roomConversations
+  }
+}
 
 extension [Conversation] {
   /// Filters conversations by category and search text

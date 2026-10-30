@@ -8,6 +8,8 @@ struct ConversationFilteringTests {
 
   private func makeContact(
     name: String,
+    type: ContactType = .chat,
+    isBlocked: Bool = false,
     isFavorite: Bool = false,
     unreadCount: Int = 0,
     unreadMentionCount: Int = 0,
@@ -18,7 +20,7 @@ struct ConversationFilteringTests {
       radioID: UUID(),
       publicKey: Data(repeating: 0, count: 32),
       name: name,
-      typeRawValue: ContactType.chat.rawValue,
+      typeRawValue: type.rawValue,
       flags: 0,
       outPathLength: 0,
       outPath: Data(),
@@ -28,7 +30,7 @@ struct ConversationFilteringTests {
       lastModified: 0,
       lastHeardTimestamp: nil,
       nickname: nil,
-      isBlocked: false,
+      isBlocked: isBlocked,
       isMuted: isMuted,
       isFavorite: isFavorite,
       lastMessageDate: Date(),
@@ -39,6 +41,7 @@ struct ConversationFilteringTests {
 
   private func makeChannel(
     name: String,
+    secret: Data = Data(repeating: 0, count: 16),
     unreadCount: Int = 0,
     unreadMentionCount: Int = 0,
     notificationLevel: NotificationLevel = .all,
@@ -49,7 +52,7 @@ struct ConversationFilteringTests {
       radioID: UUID(),
       index: 1,
       name: name,
-      secret: Data(repeating: 0, count: 16),
+      secret: secret,
       isEnabled: true,
       lastMessageDate: Date(),
       unreadCount: unreadCount,
@@ -265,5 +268,38 @@ struct ConversationFilteringTests {
 
     #expect(conversations.filtered(by: .rooms, searchText: "   ").isEmpty)
     #expect(conversations.filtered(by: .rooms, searchText: "").map(\.displayName) == ["Adapter"])
+  }
+
+  // MARK: - Chat List Rows
+
+  @Test func `chat list rows hide repeaters and blocked contacts`() {
+    let chat = makeContact(name: "Alice")
+    let repeater = makeContact(name: "Ridge", type: .repeater)
+    let blocked = makeContact(name: "Spam", isBlocked: true)
+
+    let rows = Conversation.chatListRows(contacts: [chat, repeater, blocked], channels: [], rooms: [])
+
+    #expect(rows.map(\.id) == [chat.id])
+  }
+
+  @Test func `chat list rows keep an unnamed channel only when it has a secret`() {
+    let named = makeChannel(name: "General")
+    let unnamedWithSecret = makeChannel(name: "", secret: Data(repeating: 0x5A, count: 16))
+    let emptySlot = makeChannel(name: "")
+
+    let rows = Conversation.chatListRows(contacts: [], channels: [named, unnamedWithSecret, emptySlot], rooms: [])
+
+    #expect(rows.map(\.id) == [named.id, unnamedWithSecret.id])
+  }
+
+  @Test func `chat list rows skip hidden ids and list contacts then channels then rooms`() {
+    let alice = makeContact(name: "Alice")
+    let bob = makeContact(name: "Bob")
+    let channel = makeChannel(name: "General")
+    let room = makeRoom(name: "Basecamp")
+
+    let rows = Conversation.chatListRows(contacts: [alice, bob], channels: [channel], rooms: [room], hiding: [bob.id])
+
+    #expect(rows.map(\.id) == [alice.id, channel.id, room.id])
   }
 }

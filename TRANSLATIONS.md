@@ -108,6 +108,8 @@ Localization/
   ...                 # Other languages
 ```
 
+The Apple Watch app has its own file per language, `MC1Watch/Resources/Localization/<language>.lproj/Watch.strings`. You translate it the same way: edit only the right side.
+
 ---
 
 ## For Developers
@@ -139,6 +141,8 @@ L10n.Localizable.Common.ok
 L10n.Chats.Conversation.sendButton
 L10n.Settings.Account.title
 ```
+
+Strings of the Apple Watch app go in `MC1Watch/Resources/Localization/en.lproj/Watch.strings` with `watch.`-prefixed keys. They are generated from `swiftgen-watch.yml` into the watch app's own `L10n` (for example `L10n.Watch.Home.title`).
 
 #### Step 3: Add Translations
 

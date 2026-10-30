@@ -251,6 +251,7 @@ final class AppState {
   /// only while the captured radio, services, and version remain current.
   @discardableResult
   func refreshConversations() -> Task<Void, Never> {
+    requestWatchSnapshot()
     conversationsVersion += 1
     let version = conversationsVersion
     let capturedServices = services
@@ -303,6 +304,10 @@ final class AppState {
 
   /// Live Activity lifecycle (start/update/stop on Lock Screen and Dynamic Island)
   let liveActivityManager = LiveActivityManager()
+
+  /// Publishes connection status and recent conversations to the Apple Watch app. Owned by
+  /// `MC1App` so it outlives the before-first-unlock swap; set by `WatchSyncService.adopt(_:)`.
+  @ObservationIgnored weak var watchSyncService: WatchSyncService?
 
   /// Task chain that serializes BLE lifecycle transitions across scene-phase changes.
   /// Do not cancel this task externally -- cancelling breaks the serialization
@@ -544,6 +549,7 @@ final class AppState {
 
   /// Flushes and retires chat drafts, then cancels `StoreService`'s `Transaction.updates`
   /// listener, which otherwise leaks across a before-first-unlock `AppState` swap.
+  /// Also detaches the Apple Watch link, so a replaced state never publishes again.
   /// Connection teardown stays on `ConnectionManager`.
   func shutdown() {
     cancelStaleNodeCleanup()
@@ -553,6 +559,7 @@ final class AppState {
     }
     chatDraftEditors.removeAll()
     storeState.service.shutdown()
+    watchSyncService = nil
   }
 
   // MARK: - Lifecycle

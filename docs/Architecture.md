@@ -296,6 +296,32 @@ See: [MeshCore One API Reference](api/MeshCore One.md) | [User Guide](User_Guide
 
 ---
 
+## 4. Apple Watch Companion (MC1Watch)
+
+The watch app is a companion: the iPhone stays the only Bluetooth central, and the watch shows what the iPhone app publishes over WatchConnectivity. watchOS does not keep a Bluetooth connection alive in the background, so the watch never talks to the radio itself.
+
+- **MC1WatchShared**: A dependency-free library in the MC1Services package holding the payload types (`WatchSnapshot`, `WatchRequest`, `WatchNotificationLevel`). The watch app links only this library, so neither MeshCore nor the rest of MC1Services is compiled for watchOS. Mappings from service types (e.g. `WatchNotificationLevel(_: NotificationLevel)`) live in MC1Services.
+- **WatchSyncService** (iPhone, `@MainActor`): Owned by `MC1App` for the process lifetime and activated in `App.init`, because a request from the watch can launch the app in the background, which runs only `App.init`. It adopts each real `AppState` where `IntentBridge` does. It publishes a `WatchSnapshot` (connection state, radio name, unread total, the first 20 chat-list rows) as the application context, throttled to one send every two seconds. It does nothing unless a paired watch has the app installed.
+- **WatchSnapshotReceiver** (watch): Activates its session in `App.init`, reads the last application context at launch (so the list shows even with the iPhone out of range), and asks the iPhone for a fresh snapshot with a `WatchRequest` when none has arrived yet or the user taps Refresh.
+
+```mermaid
+sequenceDiagram
+    participant AS as AppState (iPhone)
+    participant WS as WatchSyncService
+    participant WC as WatchConnectivity
+    participant WR as WatchSnapshotReceiver (watch)
+    AS->>WS: requestWatchSnapshot() on conversation or connection changes
+    WS->>WC: updateApplicationContext(WatchSnapshot)
+    WC-->>WR: didReceiveApplicationContext
+    WR->>WC: sendMessage(WatchRequest.snapshot)
+    WC-->>WS: didReceiveMessage
+    WS->>WC: sendMessage(WatchSnapshot) + application context
+```
+
+The watch app's strings follow the app's convention: `MC1Watch/Resources/Localization/<language>.lproj/Watch.strings`, turned into an `L10n` enum by SwiftGen from `swiftgen-watch.yml`.
+
+---
+
 ## Concurrency & Data Flow
 
 ### Concurrency Model

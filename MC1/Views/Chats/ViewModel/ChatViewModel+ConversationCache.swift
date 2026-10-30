@@ -29,16 +29,12 @@ extension ChatViewModel {
   /// Never wraps the assignment in `withAnimation`; only `removeConversation`/`restoreConversation`
   /// do, so a delete animates once while reload-driven recomputes stay unanimated.
   func recomputeSnapshot() {
-    let contactConversations = conversations
-      .filter { $0.type != .repeater && !$0.isBlocked && !pendingRemovalIDs.contains($0.id) }
-      .map { Conversation.direct($0) }
-    let channelConversations = channels
-      .filter { (!$0.name.isEmpty || $0.hasSecret) && !pendingRemovalIDs.contains($0.id) }
-      .map { Conversation.channel($0) }
-    let roomConversations = roomSessions
-      .filter { !pendingRemovalIDs.contains($0.id) }
-      .map { Conversation.room($0) }
-    let all = contactConversations + channelConversations + roomConversations
+    let all = Conversation.chatListRows(
+      contacts: conversations,
+      channels: channels,
+      rooms: roomSessions,
+      hiding: pendingRemovalIDs
+    )
 
     let newSnapshot = ConversationSnapshot(
       pinned: sortedByLastMessage(all.filter(\.isPinned)),

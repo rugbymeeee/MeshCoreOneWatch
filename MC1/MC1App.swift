@@ -21,6 +21,10 @@ struct MC1App: App {
   /// Stages externally opened URLs across launch; see `PendingExternalURL`.
   private let pendingExternalURL = PendingExternalURL()
 
+  /// Link to the Apple Watch app. Like `intentBridge`, it outlives the
+  /// before-first-unlock `AppState` swap and adopts each real `AppState`.
+  private let watchSyncService = WatchSyncService()
+
   init() {
     OfflineMapNetwork.configure()
     // Register the bridge synchronously here: a background-launched intent
@@ -30,6 +34,11 @@ struct MC1App: App {
     // still-initializing `self`.
     let intentBridge = intentBridge
     AppDependencyManager.shared.add(dependency: intentBridge)
+
+    // Activate the watch session here for the same reason: a refresh request
+    // from the watch can launch the app in the background.
+    let watchSyncService = watchSyncService
+    watchSyncService.activate()
 
     // True only on the before-first-unlock path, where the normal init site
     // holds an in-memory throwaway the bridge must not adopt.
@@ -61,6 +70,7 @@ struct MC1App: App {
         let appState = AppState(modelContainer: container)
         _appState = State(initialValue: appState)
         intentBridge.adopt(appState)
+        watchSyncService.adopt(appState)
         return
       }
 
@@ -82,6 +92,7 @@ struct MC1App: App {
     // intent reads nil, not an empty store.
     if !usingThrowawayStore {
       intentBridge.adopt(appState)
+      watchSyncService.adopt(appState)
     }
   }
 
@@ -112,6 +123,7 @@ struct MC1App: App {
               // First real store on the BFU path; the bridge was
               // left nil in `init()` until now.
               intentBridge.adopt(realAppState)
+              watchSyncService.adopt(realAppState)
               awaitingDataProtection = false
             } catch {
               let nsError = error as NSError

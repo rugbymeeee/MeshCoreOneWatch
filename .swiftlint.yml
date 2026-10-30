@@ -7,6 +7,7 @@ excluded:
   - tmp
   - MC1.xcodeproj
   - MC1/Resources/Generated
+  - MC1Watch/Resources/Generated
   - MeshCore/.build
   - mc-ref
   - MC1Services/.build

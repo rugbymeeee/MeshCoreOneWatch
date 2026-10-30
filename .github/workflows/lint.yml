@@ -63,11 +63,13 @@ jobs:
         run: command -v swiftgen >/dev/null 2>&1 || brew install swiftgen
 
       - name: Regenerate
-        run: swiftgen config run --config swiftgen.yml
+        run: |
+          swiftgen config run --config swiftgen.yml
+          swiftgen config run --config swiftgen-watch.yml
 
       - name: Verify no changes
         run: |
           if ! git diff --exit-code; then
-            echo "::error::Generated files are out of date. Run 'swiftgen config run --config swiftgen.yml' and commit the result."
+            echo "::error::Generated files are out of date. Run 'swiftgen config run --config swiftgen.yml' and 'swiftgen config run --config swiftgen-watch.yml' and commit the result."
             exit 1
           fi

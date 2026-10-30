@@ -6,7 +6,7 @@ This guide provides information for developers who want to contribute to the Mes
 
 ### Prerequisites
 
-- **Xcode 26.0+** (as specified in `project.yml`)
+- **Xcode 26.0+** (as specified in `project.yml`), with the **watchOS platform** installed (Xcode → Settings → Components, or `xcodebuild -downloadPlatform watchOS`). The iOS app embeds the Apple Watch app, so every build of the `MC1` scheme also builds `MC1Watch`.
 - **Swift 6.2+**
 - **XcodeGen**: Required for project file generation.
   ```bash
@@ -36,8 +36,9 @@ This guide provides information for developers who want to contribute to the Mes
 MeshCore One uses a modular structure with Swift Packages:
 
 - `MeshCore`: The protocol framework.
-- `MC1Services`: The business logic framework.
+- `MC1Services`: The business logic framework. Its `MC1WatchShared` library holds the types the iPhone and Apple Watch apps exchange, with no dependencies.
 - `MeshCore One`: The main iOS application.
+- `MC1Watch`: The Apple Watch companion app, embedded in the iOS app.
 
 ### Command Line Build
 
@@ -47,6 +48,16 @@ xcodebuild -project MC1.xcodeproj \
   -destination "platform=iOS Simulator,name=iPhone 17e,OS=26.5" \
   build
 ```
+
+### Running the Apple Watch App
+
+The watch app shows what the iPhone app publishes, so run both in a paired simulator pair:
+
+1. In Xcode → Window → Devices and Simulators, pair a watch simulator with the iPhone simulator (or create the pair with `xcrun simctl pair <watch> <phone>`).
+2. Run the `MC1` scheme on the iPhone simulator. Pass `-screenshotMode` as a launch argument to connect to the demo radio with sample conversations (Debug, simulator only).
+3. Run the `MC1Watch` scheme on the paired watch simulator.
+
+The watch app needs no radio of its own: the iPhone stays the only Bluetooth central.
 
 ### Using xcsift
 

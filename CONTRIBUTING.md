@@ -85,7 +85,7 @@ It's usually easier to simply create a feature request GitHub issue with your id
 
 ### Prerequisites
 
-- **Xcode 26.0+**
+- **Xcode 26.0+**, with the **watchOS platform** installed (Xcode → Settings → Components, or `xcodebuild -downloadPlatform watchOS`). The iOS app embeds the Apple Watch app, so building it needs the watchOS SDK.
 - **Swift 6.2+**
 - **XcodeGen**: Required for project file generation.
 - **SwiftGen**: Required for localization.

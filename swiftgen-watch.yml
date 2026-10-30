@@ -1,0 +1,10 @@
+# Strings of the Apple Watch app. Kept out of swiftgen.yml so each target's
+# sandboxed SwiftGen build phase reads and writes only its own files.
+strings:
+  - inputs:
+      - MC1Watch/Resources/Localization/en.lproj/Watch.strings
+    outputs:
+      - templateName: structured-swift5
+        output: MC1Watch/Resources/Generated/L10n.swift
+        params:
+          enumName: L10n
