@@ -1,0 +1,221 @@
+name: Fork Checks
+
+# FORK ONLY - drop this file before opening the upstream pull request.
+# Runs upstream's checks (lint, codegen, SPM tests, Xcode build) plus a watchOS device build and
+# the app test suite on feature-branch pushes. Job logs need a signed-in viewer, so every failure
+# is also reported as annotations, which the public API serves.
+
+on:
+  push:
+    branches:
+      - "feature/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # annotate <title> <log>: one annotation summarizing the failure lines of <log>, then file/line
+  # annotations for the first compiler errors.
+  ANNOTATE_SH: |
+    annotate() {
+      local title="$1" log="$2" summary
+      summary=$( {
+          grep -E '(: error: |^error: |^ld: |Undefined symbols|✘ |recorded an issue|[Ff]atal error|\*\* (BUILD|TEST) FAILED|Testing failed|Failing tests|failed with exit code|hung|timed out)' "$log"
+          grep -A8 'The following build commands failed' "$log"
+        } | awk '!seen[$0]++' | head -80 | cut -c1-500 | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')
+      echo "::error title=${title}::${summary:-No failure lines matched. See the job log.}"
+      grep -E '^/.+:[0-9]+:[0-9]+: error: ' "$log" | awk '!seen[$0]++' | head -9 | while IFS= read -r line; do
+        file=$(cut -d: -f1 <<<"$line")
+        lineno=$(cut -d: -f2 <<<"$line")
+        col=$(cut -d: -f3 <<<"$line")
+        msg=$(cut -d: -f5- <<<"$line" | sed -e 's/^ *//' -e 's/%/%25/g')
+        echo "::error file=${file#"$GITHUB_WORKSPACE"/},line=${lineno},col=${col}::${msg}"
+      done
+    }
+
+jobs:
+  lint:
+    name: Lint and codegen
+    runs-on: xcode-27
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install tools
+        env:
+          SWIFTFORMAT_VERSION: 0.63.0
+        run: |
+          command -v swiftlint >/dev/null 2>&1 || brew install swiftlint
+          command -v swiftgen >/dev/null 2>&1 || brew install swiftgen
+          curl -sSL --fail -o /tmp/swiftformat.zip \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip"
+          unzip -o -q /tmp/swiftformat.zip -d /tmp/swiftformat-bin
+          chmod +x /tmp/swiftformat-bin/swiftformat
+          echo "/tmp/swiftformat-bin" >> "$GITHUB_PATH"
+
+      - name: SwiftLint
+        if: always()
+        run: swiftlint lint --strict --reporter github-actions-logging
+
+      - name: SwiftFormat
+        if: always()
+        run: swiftformat --lint --strict --reporter github-actions-log .
+
+      - name: SwiftGen codegen check
+        if: always()
+        run: |
+          swiftgen config run --config swiftgen.yml
+          swiftgen config run --config swiftgen-watch.yml
+          if ! git diff --exit-code > "$RUNNER_TEMP/codegen.diff"; then
+            diff=$(head -120 "$RUNNER_TEMP/codegen.diff" | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=SwiftGen output differs::${diff}"
+            exit 1
+          fi
+
+  spm-tests:
+    name: MC1Services tests
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Test MC1Services
+        run: |
+          eval "$ANNOTATE_SH"
+          set -o pipefail
+          if ! swift test --package-path MC1Services --no-parallel 2>&1 | tee "$RUNNER_TEMP/spm.log"; then
+            annotate "MC1Services tests" "$RUNNER_TEMP/spm.log"
+            exit 1
+          fi
+
+  build:
+    name: Build iOS app and watch app
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install make
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          command -v swiftgen >/dev/null 2>&1 || brew install swiftgen
+
+      - name: Generate Xcode project
+        run: make generate
+
+      - name: Build MC1 for the iOS simulator (embeds the watch app)
+        run: |
+          eval "$ANNOTATE_SH"
+          set -o pipefail
+          if ! xcodebuild build \
+            -project MC1.xcodeproj \
+            -scheme MC1 \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath .derivedData \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee "$RUNNER_TEMP/ios.log"; then
+            annotate "Build MC1 (iOS simulator)" "$RUNNER_TEMP/ios.log"
+            exit 1
+          fi
+          test -d .derivedData/Build/Products/Debug-iphonesimulator/MC1.app/Watch/MC1Watch.app
+
+      - name: Build MC1Watch for watchOS devices (deployment target 10.0)
+        if: always()
+        run: |
+          eval "$ANNOTATE_SH"
+          set -o pipefail
+          if ! xcodebuild build \
+            -project MC1.xcodeproj \
+            -scheme MC1Watch \
+            -destination "generic/platform=watchOS" \
+            -derivedDataPath .derivedData-watch \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee "$RUNNER_TEMP/watch.log"; then
+            annotate "Build MC1Watch (watchOS)" "$RUNNER_TEMP/watch.log"
+            exit 1
+          fi
+
+      - name: Check that MeshCore and MC1Services are not built for watchOS
+        if: always()
+        run: |
+          built=$(find .derivedData .derivedData-watch -path "*/Products/*-watch*" \
+            \( -name "MeshCore.swiftmodule" -o -name "MC1Services.swiftmodule" -o -name "MeshCore.o" -o -name "MC1Services.o" \) 2>/dev/null || true)
+          if [ -n "$built" ]; then
+            echo "::error title=Built for watchOS::$(printf '%s' "$built" | awk '{printf "%s%%0A", $0}')"
+            exit 1
+          fi
+          shared=$(find .derivedData-watch -path "*/Products/*-watchos*" -name "MC1WatchShared*" 2>/dev/null | head -3)
+          echo "MC1WatchShared products: ${shared:-none found}"
+
+  app-tests:
+    name: App test suite
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install make
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          command -v swiftgen >/dev/null 2>&1 || brew install swiftgen
+
+      - name: Generate Xcode project
+        run: make generate
+
+      - name: Pick a simulator
+        run: |
+          # The project-standard iPhone 17e on iOS 27.0 when the image has it, else the newest iPhone.
+          dest=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          ios = sorted((key for key in runtimes if ".iOS-" in key), key=lambda key: [int(p) for p in key.split(".iOS-")[1].split("-")])
+          for key in reversed(ios):
+              for device in runtimes[key]:
+                  if device["name"] == "iPhone 17e" and key.endswith("iOS-27-0"):
+                      print("platform=iOS Simulator,id=" + device["udid"]); sys.exit()
+          for key in reversed(ios):
+              for device in runtimes[key]:
+                  if device["name"].startswith("iPhone"):
+                      print("platform=iOS Simulator,id=" + device["udid"]); sys.exit()
+          ')
+          echo "Using $dest"
+          echo "DEST=$dest" >> "$GITHUB_ENV"
+
+      - name: Run the app tests
+        run: |
+          eval "$ANNOTATE_SH"
+          set -o pipefail
+          if ! xcodebuild test \
+            -project MC1.xcodeproj \
+            -scheme MC1 \
+            -destination "$DEST" \
+            -parallel-testing-enabled NO \
+            -collect-test-diagnostics never \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee "$RUNNER_TEMP/tests.log"; then
+            annotate "App tests" "$RUNNER_TEMP/tests.log"
+            exit 1
+          fi
