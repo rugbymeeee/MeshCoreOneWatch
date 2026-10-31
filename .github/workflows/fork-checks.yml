@@ -1,0 +1,115 @@
+name: Fork Checks (baseline)
+
+# FORK ONLY - the app test job of fork-checks.yml, run on the upstream dev commit that
+# feature/watch-companion starts from, to compare against. Throwaway branch.
+# Runs upstream's checks (lint, codegen, SPM tests, Xcode build) plus a watchOS device build and
+# the app test suite on feature-branch pushes. Job logs need a signed-in viewer, so every failure
+# is also reported as annotations, which the public API serves; .github/fork-checks/
+# xcodebuild_test.py does the same for the app tests' progress, stalls, and summary.
+
+on:
+  push:
+    branches:
+      - "feature/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # annotate <title> <log>: one annotation summarizing the failure lines of <log>, then file/line
+  # annotations for the first compiler errors.
+  ANNOTATE_SH: |
+    annotate() {
+      local title="$1" log="$2" summary
+      summary=$( {
+          grep -E '(: error: |^error: |^ld: |Undefined symbols|✘ |recorded an issue|[Ff]atal error|\*\* (BUILD|TEST) FAILED|Testing failed|Failing tests|failed with exit code|hung|timed out)' "$log"
+          grep -A8 'The following build commands failed' "$log"
+        } | awk '!seen[$0]++' | head -80 | cut -c1-500 | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')
+      echo "::error title=${title}::${summary:-No failure lines matched. See the job log.}"
+      grep -E '^/.+:[0-9]+:[0-9]+: error: ' "$log" | awk '!seen[$0]++' | head -9 | while IFS= read -r line; do
+        file=$(cut -d: -f1 <<<"$line")
+        lineno=$(cut -d: -f2 <<<"$line")
+        col=$(cut -d: -f3 <<<"$line")
+        msg=$(cut -d: -f5- <<<"$line" | sed -e 's/^ *//' -e 's/%/%25/g')
+        echo "::error file=${file#"$GITHUB_WORKSPACE"/},line=${lineno},col=${col}::${msg}"
+      done
+    }
+
+jobs:
+  app-tests:
+    name: App test suite
+    runs-on: xcode-27
+    # Upstream CI never runs this suite. Serialized like `make test-app`, it outlasted an hour here.
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install make
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          command -v swiftgen >/dev/null 2>&1 || brew install swiftgen
+
+      - name: Generate Xcode project
+        run: make generate
+
+      - name: Pick a simulator
+        run: |
+          # The project-standard iPhone 17e on iOS 27.0 when the image has it, else the newest iPhone.
+          picked=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          ios = sorted((key for key in runtimes if ".iOS-" in key), key=lambda key: [int(p) for p in key.split(".iOS-")[1].split("-")])
+          def pick():
+              for key in reversed(ios):
+                  for device in runtimes[key]:
+                      if device["name"] == "iPhone 17e" and key.endswith("iOS-27-0"):
+                          return key, device
+              for key in reversed(ios):
+                  for device in runtimes[key]:
+                      if device["name"].startswith("iPhone"):
+                          return key, device
+          key, device = pick()
+          print(device["udid"], key.split(".")[-1], device["name"], sep="|")
+          ')
+          IFS='|' read -r udid runtime name <<<"$picked"
+          echo "::notice title=Simulator::${name} on ${runtime}"
+          echo "DEST=platform=iOS Simulator,id=${udid}" >> "$GITHUB_ENV"
+
+      - name: Build for testing
+        run: |
+          eval "$ANNOTATE_SH"
+          set -o pipefail
+          if ! xcodebuild build-for-testing \
+            -project MC1.xcodeproj \
+            -scheme MC1 \
+            -destination "$DEST" \
+            -derivedDataPath .derivedData \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee "$RUNNER_TEMP/build-for-testing.log"; then
+            annotate "Build for testing" "$RUNNER_TEMP/build-for-testing.log"
+            exit 1
+          fi
+
+      - name: Run the app tests
+        timeout-minutes: 135
+        run: |
+          python3 -u .github/fork-checks/xcodebuild_test.py 125 "$RUNNER_TEMP/tests.log" "$RUNNER_TEMP/AppTests.xcresult" -- \
+            xcodebuild test-without-building \
+            -project MC1.xcodeproj \
+            -scheme MC1 \
+            -destination "$DEST" \
+            -derivedDataPath .derivedData \
+            -resultBundlePath "$RUNNER_TEMP/AppTests.xcresult" \
+            -parallel-testing-enabled NO \
+            -collect-test-diagnostics never \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
