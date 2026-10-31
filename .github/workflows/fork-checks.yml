@@ -1,9 +1,10 @@
 name: Fork Checks
 
-# FORK ONLY - drop this file before opening the upstream pull request.
+# FORK ONLY - drop this file and .github/fork-checks/ before opening the upstream pull request.
 # Runs upstream's checks (lint, codegen, SPM tests, Xcode build) plus a watchOS device build and
 # the app test suite on feature-branch pushes. Job logs need a signed-in viewer, so every failure
-# is also reported as annotations, which the public API serves.
+# is also reported as annotations, which the public API serves; .github/fork-checks/
+# xcodebuild_test.py does the same for the app tests' progress, stalls, and summary.
 
 on:
   push:
@@ -167,7 +168,8 @@ jobs:
   app-tests:
     name: App test suite
     runs-on: xcode-27
-    timeout-minutes: 60
+    # Upstream CI never runs this suite. Serialized like `make test-app`, it outlasted an hour here.
+    timeout-minutes: 150
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -187,35 +189,54 @@ jobs:
       - name: Pick a simulator
         run: |
           # The project-standard iPhone 17e on iOS 27.0 when the image has it, else the newest iPhone.
-          dest=$(xcrun simctl list devices available -j | python3 -c '
+          picked=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
           runtimes = json.load(sys.stdin)["devices"]
           ios = sorted((key for key in runtimes if ".iOS-" in key), key=lambda key: [int(p) for p in key.split(".iOS-")[1].split("-")])
-          for key in reversed(ios):
-              for device in runtimes[key]:
-                  if device["name"] == "iPhone 17e" and key.endswith("iOS-27-0"):
-                      print("platform=iOS Simulator,id=" + device["udid"]); sys.exit()
-          for key in reversed(ios):
-              for device in runtimes[key]:
-                  if device["name"].startswith("iPhone"):
-                      print("platform=iOS Simulator,id=" + device["udid"]); sys.exit()
+          def pick():
+              for key in reversed(ios):
+                  for device in runtimes[key]:
+                      if device["name"] == "iPhone 17e" and key.endswith("iOS-27-0"):
+                          return key, device
+              for key in reversed(ios):
+                  for device in runtimes[key]:
+                      if device["name"].startswith("iPhone"):
+                          return key, device
+          key, device = pick()
+          print(device["udid"], key.split(".")[-1], device["name"], sep="|")
           ')
-          echo "Using $dest"
-          echo "DEST=$dest" >> "$GITHUB_ENV"
+          IFS='|' read -r udid runtime name <<<"$picked"
+          echo "::notice title=Simulator::${name} on ${runtime}"
+          echo "DEST=platform=iOS Simulator,id=${udid}" >> "$GITHUB_ENV"
 
-      - name: Run the app tests
+      - name: Build for testing
         run: |
           eval "$ANNOTATE_SH"
           set -o pipefail
-          if ! xcodebuild test \
+          if ! xcodebuild build-for-testing \
             -project MC1.xcodeproj \
             -scheme MC1 \
             -destination "$DEST" \
+            -derivedDataPath .derivedData \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee "$RUNNER_TEMP/build-for-testing.log"; then
+            annotate "Build for testing" "$RUNNER_TEMP/build-for-testing.log"
+            exit 1
+          fi
+
+      - name: Run the app tests
+        timeout-minutes: 135
+        run: |
+          python3 -u .github/fork-checks/xcodebuild_test.py 125 "$RUNNER_TEMP/tests.log" "$RUNNER_TEMP/AppTests.xcresult" -- \
+            xcodebuild test-without-building \
+            -project MC1.xcodeproj \
+            -scheme MC1 \
+            -destination "$DEST" \
+            -derivedDataPath .derivedData \
+            -resultBundlePath "$RUNNER_TEMP/AppTests.xcresult" \
             -parallel-testing-enabled NO \
             -collect-test-diagnostics never \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee "$RUNNER_TEMP/tests.log"; then
-            annotate "App tests" "$RUNNER_TEMP/tests.log"
-            exit 1
-          fi
+            COMPILER_INDEX_STORE_ENABLE=NO
